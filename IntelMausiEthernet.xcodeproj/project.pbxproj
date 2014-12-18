@@ -1,0 +1,313 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		D3CB5B801A4394A800A37FAA /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = D3CB5B7E1A4394A800A37FAA /* InfoPlist.strings */; };
+		D3CB5B831A4394A800A37FAA /* IntelMausiEthernet.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D3CB5B821A4394A800A37FAA /* IntelMausiEthernet.cpp */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		D3CB5B761A4394A800A37FAA /* IntelMausiEthernet.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IntelMausiEthernet.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		D3CB5B7A1A4394A800A37FAA /* Kernel.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kernel.framework; path = System/Library/Frameworks/Kernel.framework; sourceTree = SDKROOT; };
+		D3CB5B7D1A4394A800A37FAA /* IntelMausiEthernet-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "IntelMausiEthernet-Info.plist"; sourceTree = "<group>"; };
+		D3CB5B7F1A4394A800A37FAA /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		D3CB5B811A4394A800A37FAA /* IntelMausiEthernet.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IntelMausiEthernet.h; sourceTree = "<group>"; };
+		D3CB5B821A4394A800A37FAA /* IntelMausiEthernet.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = IntelMausiEthernet.cpp; sourceTree = "<group>"; };
+		D3CB5B841A4394A800A37FAA /* IntelMausiEthernet-Prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "IntelMausiEthernet-Prefix.pch"; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		D3CB5B711A4394A800A37FAA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		D3CB5B6B1A4394A800A37FAA = {
+			isa = PBXGroup;
+			children = (
+				D3CB5B7B1A4394A800A37FAA /* IntelMausiEthernet */,
+				D3CB5B781A4394A800A37FAA /* Frameworks */,
+				D3CB5B771A4394A800A37FAA /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		D3CB5B771A4394A800A37FAA /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				D3CB5B761A4394A800A37FAA /* IntelMausiEthernet.kext */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		D3CB5B781A4394A800A37FAA /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				D3CB5B791A4394A800A37FAA /* Other Frameworks */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		D3CB5B791A4394A800A37FAA /* Other Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				D3CB5B7A1A4394A800A37FAA /* Kernel.framework */,
+			);
+			name = "Other Frameworks";
+			sourceTree = "<group>";
+		};
+		D3CB5B7B1A4394A800A37FAA /* IntelMausiEthernet */ = {
+			isa = PBXGroup;
+			children = (
+				D3CB5B811A4394A800A37FAA /* IntelMausiEthernet.h */,
+				D3CB5B821A4394A800A37FAA /* IntelMausiEthernet.cpp */,
+				D3CB5B7C1A4394A800A37FAA /* Supporting Files */,
+			);
+			path = IntelMausiEthernet;
+			sourceTree = "<group>";
+		};
+		D3CB5B7C1A4394A800A37FAA /* Supporting Files */ = {
+			isa = PBXGroup;
+			children = (
+				D3CB5B7D1A4394A800A37FAA /* IntelMausiEthernet-Info.plist */,
+				D3CB5B7E1A4394A800A37FAA /* InfoPlist.strings */,
+				D3CB5B841A4394A800A37FAA /* IntelMausiEthernet-Prefix.pch */,
+			);
+			name = "Supporting Files";
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		D3CB5B721A4394A800A37FAA /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		D3CB5B751A4394A800A37FAA /* IntelMausiEthernet */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D3CB5B871A4394A800A37FAA /* Build configuration list for PBXNativeTarget "IntelMausiEthernet" */;
+			buildPhases = (
+				D3CB5B701A4394A800A37FAA /* Sources */,
+				D3CB5B711A4394A800A37FAA /* Frameworks */,
+				D3CB5B721A4394A800A37FAA /* Headers */,
+				D3CB5B731A4394A800A37FAA /* Resources */,
+				D3CB5B741A4394A800A37FAA /* Rez */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = IntelMausiEthernet;
+			productName = IntelMausiEthernet;
+			productReference = D3CB5B761A4394A800A37FAA /* IntelMausiEthernet.kext */;
+			productType = "com.apple.product-type.kernel-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		D3CB5B6C1A4394A800A37FAA /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0510;
+				ORGANIZATIONNAME = "Laura Müller";
+			};
+			buildConfigurationList = D3CB5B6F1A4394A800A37FAA /* Build configuration list for PBXProject "IntelMausiEthernet" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = D3CB5B6B1A4394A800A37FAA;
+			productRefGroup = D3CB5B771A4394A800A37FAA /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				D3CB5B751A4394A800A37FAA /* IntelMausiEthernet */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		D3CB5B731A4394A800A37FAA /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D3CB5B801A4394A800A37FAA /* InfoPlist.strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXRezBuildPhase section */
+		D3CB5B741A4394A800A37FAA /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXRezBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		D3CB5B701A4394A800A37FAA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D3CB5B831A4394A800A37FAA /* IntelMausiEthernet.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXVariantGroup section */
+		D3CB5B7E1A4394A800A37FAA /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				D3CB5B7F1A4394A800A37FAA /* en */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		D3CB5B851A4394A800A37FAA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.8;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		D3CB5B861A4394A800A37FAA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.8;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		D3CB5B881A4394A800A37FAA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1.0.0d1;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "IntelMausiEthernet/IntelMausiEthernet-Prefix.pch";
+				INFOPLIST_FILE = "IntelMausiEthernet/IntelMausiEthernet-Info.plist";
+				MODULE_NAME = com.insanelymac.IntelMausiEthernet;
+				MODULE_VERSION = 1.0.0d1;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Debug;
+		};
+		D3CB5B891A4394A800A37FAA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1.0.0d1;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "IntelMausiEthernet/IntelMausiEthernet-Prefix.pch";
+				INFOPLIST_FILE = "IntelMausiEthernet/IntelMausiEthernet-Info.plist";
+				MODULE_NAME = com.insanelymac.IntelMausiEthernet;
+				MODULE_VERSION = 1.0.0d1;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		D3CB5B6F1A4394A800A37FAA /* Build configuration list for PBXProject "IntelMausiEthernet" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D3CB5B851A4394A800A37FAA /* Debug */,
+				D3CB5B861A4394A800A37FAA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D3CB5B871A4394A800A37FAA /* Build configuration list for PBXNativeTarget "IntelMausiEthernet" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D3CB5B881A4394A800A37FAA /* Debug */,
+				D3CB5B891A4394A800A37FAA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = D3CB5B6C1A4394A800A37FAA /* Project object */;
+}
