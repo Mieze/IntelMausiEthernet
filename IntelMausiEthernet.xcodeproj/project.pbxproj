@@ -7,18 +7,77 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		D3CB5B801A4394A800A37FAA /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = D3CB5B7E1A4394A800A37FAA /* InfoPlist.strings */; };
+		D31D52041A566D8000DD1F17 /* IntelMausiSetup.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D31D52021A566D8000DD1F17 /* IntelMausiSetup.cpp */; };
+		D31D52081A566F4800DD1F17 /* IntelMausiHardware.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D31D52061A566F4800DD1F17 /* IntelMausiHardware.cpp */; };
+		D34B02311A75C30800A8982C /* manage.c in Sources */ = {isa = PBXBuildFile; fileRef = D3CB5BAC1A43993400A37FAA /* manage.c */; };
 		D3CB5B831A4394A800A37FAA /* IntelMausiEthernet.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D3CB5B821A4394A800A37FAA /* IntelMausiEthernet.cpp */; };
+		D3CB5B961A43969400A37FAA /* linux.h in Headers */ = {isa = PBXBuildFile; fileRef = D3CB5B8D1A43969400A37FAA /* linux.h */; };
+		D3CB5B971A43969400A37FAA /* ethtool.h in Headers */ = {isa = PBXBuildFile; fileRef = D3CB5B8E1A43969400A37FAA /* ethtool.h */; };
+		D3CB5B981A43969400A37FAA /* if_ether.h in Headers */ = {isa = PBXBuildFile; fileRef = D3CB5B8F1A43969400A37FAA /* if_ether.h */; };
+		D3CB5B991A43969400A37FAA /* mdio.h in Headers */ = {isa = PBXBuildFile; fileRef = D3CB5B901A43969400A37FAA /* mdio.h */; };
+		D3CB5B9A1A43969400A37FAA /* mii.h in Headers */ = {isa = PBXBuildFile; fileRef = D3CB5B911A43969400A37FAA /* mii.h */; };
+		D3CB5B9B1A43969400A37FAA /* uapi-ethtool.h in Headers */ = {isa = PBXBuildFile; fileRef = D3CB5B921A43969400A37FAA /* uapi-ethtool.h */; };
+		D3CB5B9C1A43969400A37FAA /* uapi-mdio.h in Headers */ = {isa = PBXBuildFile; fileRef = D3CB5B931A43969400A37FAA /* uapi-mdio.h */; };
+		D3CB5B9D1A43969400A37FAA /* uapi-mii.h in Headers */ = {isa = PBXBuildFile; fileRef = D3CB5B941A43969400A37FAA /* uapi-mii.h */; };
+		D3CB5B9E1A43969400A37FAA /* uapi-ip.h in Headers */ = {isa = PBXBuildFile; fileRef = D3CB5B951A43969400A37FAA /* uapi-ip.h */; };
+		D3CB5BB81A43993400A37FAA /* 82571.c in Sources */ = {isa = PBXBuildFile; fileRef = D3CB5BA21A43993300A37FAA /* 82571.c */; };
+		D3CB5BB91A43993400A37FAA /* 82571.h in Headers */ = {isa = PBXBuildFile; fileRef = D3CB5BA31A43993300A37FAA /* 82571.h */; };
+		D3CB5BBA1A43993400A37FAA /* defines.h in Headers */ = {isa = PBXBuildFile; fileRef = D3CB5BA41A43993300A37FAA /* defines.h */; };
+		D3CB5BBB1A43993400A37FAA /* e1000.h in Headers */ = {isa = PBXBuildFile; fileRef = D3CB5BA51A43993300A37FAA /* e1000.h */; };
+		D3CB5BBD1A43993400A37FAA /* hw.h in Headers */ = {isa = PBXBuildFile; fileRef = D3CB5BA71A43993400A37FAA /* hw.h */; };
+		D3CB5BBE1A43993400A37FAA /* ich8lan.c in Sources */ = {isa = PBXBuildFile; fileRef = D3CB5BA81A43993400A37FAA /* ich8lan.c */; };
+		D3CB5BBF1A43993400A37FAA /* ich8lan.h in Headers */ = {isa = PBXBuildFile; fileRef = D3CB5BA91A43993400A37FAA /* ich8lan.h */; };
+		D3CB5BC01A43993400A37FAA /* mac.c in Sources */ = {isa = PBXBuildFile; fileRef = D3CB5BAA1A43993400A37FAA /* mac.c */; };
+		D3CB5BC11A43993400A37FAA /* mac.h in Headers */ = {isa = PBXBuildFile; fileRef = D3CB5BAB1A43993400A37FAA /* mac.h */; };
+		D3CB5BC31A43993400A37FAA /* manage.h in Headers */ = {isa = PBXBuildFile; fileRef = D3CB5BAD1A43993400A37FAA /* manage.h */; };
+		D3CB5BC41A43993400A37FAA /* netdev.c in Sources */ = {isa = PBXBuildFile; fileRef = D3CB5BAE1A43993400A37FAA /* netdev.c */; };
+		D3CB5BC51A43993400A37FAA /* nvm.c in Sources */ = {isa = PBXBuildFile; fileRef = D3CB5BAF1A43993400A37FAA /* nvm.c */; };
+		D3CB5BC61A43993400A37FAA /* nvm.h in Headers */ = {isa = PBXBuildFile; fileRef = D3CB5BB01A43993400A37FAA /* nvm.h */; };
+		D3CB5BC81A43993400A37FAA /* phy.c in Sources */ = {isa = PBXBuildFile; fileRef = D3CB5BB21A43993400A37FAA /* phy.c */; };
+		D3CB5BC91A43993400A37FAA /* phy.h in Headers */ = {isa = PBXBuildFile; fileRef = D3CB5BB31A43993400A37FAA /* phy.h */; };
+		D3CB5BCB1A43993400A37FAA /* regs.h in Headers */ = {isa = PBXBuildFile; fileRef = D3CB5BB51A43993400A37FAA /* regs.h */; };
+		D3CB5BCD1A43A18B00A37FAA /* uapi-pci_regs.h in Headers */ = {isa = PBXBuildFile; fileRef = D3CB5BCC1A43A18B00A37FAA /* uapi-pci_regs.h */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		D31D52021A566D8000DD1F17 /* IntelMausiSetup.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IntelMausiSetup.cpp; sourceTree = "<group>"; };
+		D31D52061A566F4800DD1F17 /* IntelMausiHardware.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IntelMausiHardware.cpp; sourceTree = "<group>"; };
 		D3CB5B761A4394A800A37FAA /* IntelMausiEthernet.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IntelMausiEthernet.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		D3CB5B7A1A4394A800A37FAA /* Kernel.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kernel.framework; path = System/Library/Frameworks/Kernel.framework; sourceTree = SDKROOT; };
 		D3CB5B7D1A4394A800A37FAA /* IntelMausiEthernet-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "IntelMausiEthernet-Info.plist"; sourceTree = "<group>"; };
-		D3CB5B7F1A4394A800A37FAA /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		D3CB5B811A4394A800A37FAA /* IntelMausiEthernet.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IntelMausiEthernet.h; sourceTree = "<group>"; };
 		D3CB5B821A4394A800A37FAA /* IntelMausiEthernet.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = IntelMausiEthernet.cpp; sourceTree = "<group>"; };
 		D3CB5B841A4394A800A37FAA /* IntelMausiEthernet-Prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "IntelMausiEthernet-Prefix.pch"; sourceTree = "<group>"; };
+		D3CB5B8A1A4395E400A37FAA /* gpl.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = gpl.txt; sourceTree = "<group>"; };
+		D3CB5B8D1A43969400A37FAA /* linux.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = linux.h; sourceTree = "<group>"; };
+		D3CB5B8E1A43969400A37FAA /* ethtool.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ethtool.h; sourceTree = "<group>"; };
+		D3CB5B8F1A43969400A37FAA /* if_ether.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = if_ether.h; sourceTree = "<group>"; };
+		D3CB5B901A43969400A37FAA /* mdio.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = mdio.h; sourceTree = "<group>"; };
+		D3CB5B911A43969400A37FAA /* mii.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = mii.h; sourceTree = "<group>"; };
+		D3CB5B921A43969400A37FAA /* uapi-ethtool.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "uapi-ethtool.h"; sourceTree = "<group>"; };
+		D3CB5B931A43969400A37FAA /* uapi-mdio.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "uapi-mdio.h"; sourceTree = "<group>"; };
+		D3CB5B941A43969400A37FAA /* uapi-mii.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "uapi-mii.h"; sourceTree = "<group>"; };
+		D3CB5B951A43969400A37FAA /* uapi-ip.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "uapi-ip.h"; sourceTree = "<group>"; };
+		D3CB5BA21A43993300A37FAA /* 82571.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = 82571.c; sourceTree = "<group>"; };
+		D3CB5BA31A43993300A37FAA /* 82571.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = 82571.h; sourceTree = "<group>"; };
+		D3CB5BA41A43993300A37FAA /* defines.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = defines.h; sourceTree = "<group>"; };
+		D3CB5BA51A43993300A37FAA /* e1000.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = e1000.h; sourceTree = "<group>"; };
+		D3CB5BA61A43993300A37FAA /* ethtool.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ethtool.c; sourceTree = "<group>"; };
+		D3CB5BA71A43993400A37FAA /* hw.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = hw.h; sourceTree = "<group>"; };
+		D3CB5BA81A43993400A37FAA /* ich8lan.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ich8lan.c; sourceTree = "<group>"; };
+		D3CB5BA91A43993400A37FAA /* ich8lan.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ich8lan.h; sourceTree = "<group>"; };
+		D3CB5BAA1A43993400A37FAA /* mac.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = mac.c; sourceTree = "<group>"; };
+		D3CB5BAB1A43993400A37FAA /* mac.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = mac.h; sourceTree = "<group>"; };
+		D3CB5BAC1A43993400A37FAA /* manage.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = manage.c; sourceTree = "<group>"; };
+		D3CB5BAD1A43993400A37FAA /* manage.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = manage.h; sourceTree = "<group>"; };
+		D3CB5BAE1A43993400A37FAA /* netdev.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = netdev.c; sourceTree = "<group>"; };
+		D3CB5BAF1A43993400A37FAA /* nvm.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = nvm.c; sourceTree = "<group>"; };
+		D3CB5BB01A43993400A37FAA /* nvm.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = nvm.h; sourceTree = "<group>"; };
+		D3CB5BB11A43993400A37FAA /* param.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = param.c; sourceTree = "<group>"; };
+		D3CB5BB21A43993400A37FAA /* phy.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = phy.c; sourceTree = "<group>"; };
+		D3CB5BB31A43993400A37FAA /* phy.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = phy.h; sourceTree = "<group>"; };
+		D3CB5BB51A43993400A37FAA /* regs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = regs.h; sourceTree = "<group>"; };
+		D3CB5BCC1A43A18B00A37FAA /* uapi-pci_regs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "uapi-pci_regs.h"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -70,6 +129,11 @@
 			children = (
 				D3CB5B811A4394A800A37FAA /* IntelMausiEthernet.h */,
 				D3CB5B821A4394A800A37FAA /* IntelMausiEthernet.cpp */,
+				D31D52021A566D8000DD1F17 /* IntelMausiSetup.cpp */,
+				D31D52061A566F4800DD1F17 /* IntelMausiHardware.cpp */,
+				D3CB5B9F1A43990200A37FAA /* Intel E1000e */,
+				D3CB5B8C1A43968000A37FAA /* Linux Compatibility */,
+				D3CB5B8A1A4395E400A37FAA /* gpl.txt */,
 				D3CB5B7C1A4394A800A37FAA /* Supporting Files */,
 			);
 			path = IntelMausiEthernet;
@@ -79,10 +143,52 @@
 			isa = PBXGroup;
 			children = (
 				D3CB5B7D1A4394A800A37FAA /* IntelMausiEthernet-Info.plist */,
-				D3CB5B7E1A4394A800A37FAA /* InfoPlist.strings */,
 				D3CB5B841A4394A800A37FAA /* IntelMausiEthernet-Prefix.pch */,
 			);
 			name = "Supporting Files";
+			sourceTree = "<group>";
+		};
+		D3CB5B8C1A43968000A37FAA /* Linux Compatibility */ = {
+			isa = PBXGroup;
+			children = (
+				D3CB5B8D1A43969400A37FAA /* linux.h */,
+				D3CB5B8E1A43969400A37FAA /* ethtool.h */,
+				D3CB5B8F1A43969400A37FAA /* if_ether.h */,
+				D3CB5B901A43969400A37FAA /* mdio.h */,
+				D3CB5B911A43969400A37FAA /* mii.h */,
+				D3CB5B921A43969400A37FAA /* uapi-ethtool.h */,
+				D3CB5B931A43969400A37FAA /* uapi-mdio.h */,
+				D3CB5B941A43969400A37FAA /* uapi-mii.h */,
+				D3CB5B951A43969400A37FAA /* uapi-ip.h */,
+				D3CB5BCC1A43A18B00A37FAA /* uapi-pci_regs.h */,
+			);
+			name = "Linux Compatibility";
+			sourceTree = "<group>";
+		};
+		D3CB5B9F1A43990200A37FAA /* Intel E1000e */ = {
+			isa = PBXGroup;
+			children = (
+				D3CB5BA31A43993300A37FAA /* 82571.h */,
+				D3CB5BA21A43993300A37FAA /* 82571.c */,
+				D3CB5BA41A43993300A37FAA /* defines.h */,
+				D3CB5BA51A43993300A37FAA /* e1000.h */,
+				D3CB5BA61A43993300A37FAA /* ethtool.c */,
+				D3CB5BA71A43993400A37FAA /* hw.h */,
+				D3CB5BA91A43993400A37FAA /* ich8lan.h */,
+				D3CB5BA81A43993400A37FAA /* ich8lan.c */,
+				D3CB5BAB1A43993400A37FAA /* mac.h */,
+				D3CB5BAA1A43993400A37FAA /* mac.c */,
+				D3CB5BAD1A43993400A37FAA /* manage.h */,
+				D3CB5BAC1A43993400A37FAA /* manage.c */,
+				D3CB5BAE1A43993400A37FAA /* netdev.c */,
+				D3CB5BB01A43993400A37FAA /* nvm.h */,
+				D3CB5BAF1A43993400A37FAA /* nvm.c */,
+				D3CB5BB11A43993400A37FAA /* param.c */,
+				D3CB5BB31A43993400A37FAA /* phy.h */,
+				D3CB5BB21A43993400A37FAA /* phy.c */,
+				D3CB5BB51A43993400A37FAA /* regs.h */,
+			);
+			name = "Intel E1000e";
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -92,6 +198,26 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D3CB5BC61A43993400A37FAA /* nvm.h in Headers */,
+				D3CB5B9A1A43969400A37FAA /* mii.h in Headers */,
+				D3CB5BC91A43993400A37FAA /* phy.h in Headers */,
+				D3CB5BBD1A43993400A37FAA /* hw.h in Headers */,
+				D3CB5BC31A43993400A37FAA /* manage.h in Headers */,
+				D3CB5BCB1A43993400A37FAA /* regs.h in Headers */,
+				D3CB5BBA1A43993400A37FAA /* defines.h in Headers */,
+				D3CB5B981A43969400A37FAA /* if_ether.h in Headers */,
+				D3CB5B991A43969400A37FAA /* mdio.h in Headers */,
+				D3CB5B9D1A43969400A37FAA /* uapi-mii.h in Headers */,
+				D3CB5B971A43969400A37FAA /* ethtool.h in Headers */,
+				D3CB5B961A43969400A37FAA /* linux.h in Headers */,
+				D3CB5B9E1A43969400A37FAA /* uapi-ip.h in Headers */,
+				D3CB5BCD1A43A18B00A37FAA /* uapi-pci_regs.h in Headers */,
+				D3CB5BB91A43993400A37FAA /* 82571.h in Headers */,
+				D3CB5B9C1A43969400A37FAA /* uapi-mdio.h in Headers */,
+				D3CB5BC11A43993400A37FAA /* mac.h in Headers */,
+				D3CB5B9B1A43969400A37FAA /* uapi-ethtool.h in Headers */,
+				D3CB5BBB1A43993400A37FAA /* e1000.h in Headers */,
+				D3CB5BBF1A43993400A37FAA /* ich8lan.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -148,7 +274,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				D3CB5B801A4394A800A37FAA /* InfoPlist.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -170,21 +295,19 @@
 			buildActionMask = 2147483647;
 			files = (
 				D3CB5B831A4394A800A37FAA /* IntelMausiEthernet.cpp in Sources */,
+				D3CB5BC01A43993400A37FAA /* mac.c in Sources */,
+				D3CB5BBE1A43993400A37FAA /* ich8lan.c in Sources */,
+				D3CB5BB81A43993400A37FAA /* 82571.c in Sources */,
+				D31D52081A566F4800DD1F17 /* IntelMausiHardware.cpp in Sources */,
+				D3CB5BC81A43993400A37FAA /* phy.c in Sources */,
+				D34B02311A75C30800A8982C /* manage.c in Sources */,
+				D3CB5BC41A43993400A37FAA /* netdev.c in Sources */,
+				D31D52041A566D8000DD1F17 /* IntelMausiSetup.cpp in Sources */,
+				D3CB5BC51A43993400A37FAA /* nvm.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
-
-/* Begin PBXVariantGroup section */
-		D3CB5B7E1A4394A800A37FAA /* InfoPlist.strings */ = {
-			isa = PBXVariantGroup;
-			children = (
-				D3CB5B7F1A4394A800A37FAA /* en */,
-			);
-			name = InfoPlist.strings;
-			sourceTree = "<group>";
-		};
-/* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
 		D3CB5B851A4394A800A37FAA /* Debug */ = {
@@ -206,6 +329,9 @@
 				COPY_PHASE_STRIP = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_CPP_EXCEPTIONS = NO;
+				GCC_ENABLE_CPP_RTTI = NO;
+				GCC_ENABLE_KERNEL_DEVELOPMENT = YES;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -219,9 +345,9 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.8;
+				MACOSX_DEPLOYMENT_TARGET = 10.9;
 				ONLY_ACTIVE_ARCH = YES;
-				SDKROOT = macosx;
+				SDKROOT = macosx10.8;
 			};
 			name = Debug;
 		};
@@ -245,6 +371,9 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_ENABLE_CPP_EXCEPTIONS = NO;
+				GCC_ENABLE_CPP_RTTI = NO;
+				GCC_ENABLE_KERNEL_DEVELOPMENT = YES;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
@@ -252,22 +381,30 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.8;
-				SDKROOT = macosx;
+				MACOSX_DEPLOYMENT_TARGET = 10.9;
+				SDKROOT = macosx10.8;
 			};
 			name = Release;
 		};
 		D3CB5B881A4394A800A37FAA /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "compiler-default";
+				CLANG_CXX_LIBRARY = "compiler-default";
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_ARC = NO;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1.0.0d1;
+				CURRENT_PROJECT_VERSION = $MODULE_VERSION;
+				GCC_CW_ASM_SYNTAX = NO;
+				GCC_ENABLE_OBJC_EXCEPTIONS = NO;
+				GCC_LINK_WITH_DYNAMIC_LIBRARIES = NO;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "IntelMausiEthernet/IntelMausiEthernet-Prefix.pch";
 				INFOPLIST_FILE = "IntelMausiEthernet/IntelMausiEthernet-Info.plist";
 				MODULE_NAME = com.insanelymac.IntelMausiEthernet;
-				MODULE_VERSION = 1.0.0d1;
+				MODULE_VERSION = 1.0.0d2;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx10.9;
 				WRAPPER_EXTENSION = kext;
 			};
 			name = Debug;
@@ -275,14 +412,22 @@
 		D3CB5B891A4394A800A37FAA /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "compiler-default";
+				CLANG_CXX_LIBRARY = "compiler-default";
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_ARC = NO;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1.0.0d1;
+				CURRENT_PROJECT_VERSION = $MODULE_VERSION;
+				GCC_CW_ASM_SYNTAX = NO;
+				GCC_ENABLE_OBJC_EXCEPTIONS = NO;
+				GCC_LINK_WITH_DYNAMIC_LIBRARIES = NO;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "IntelMausiEthernet/IntelMausiEthernet-Prefix.pch";
 				INFOPLIST_FILE = "IntelMausiEthernet/IntelMausiEthernet-Info.plist";
 				MODULE_NAME = com.insanelymac.IntelMausiEthernet;
-				MODULE_VERSION = 1.0.0d1;
+				MODULE_VERSION = 1.0.0d2;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx10.9;
 				WRAPPER_EXTENSION = kext;
 			};
 			name = Release;
@@ -306,6 +451,7 @@
 				D3CB5B891A4394A800A37FAA /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
