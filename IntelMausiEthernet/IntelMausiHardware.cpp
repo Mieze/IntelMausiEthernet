@@ -806,20 +806,6 @@ bool IntelMausi::intelEnableMngPassThru(struct e1000_hw *hw)
 		    ((fwsm & E1000_FWSM_MODE_MASK) ==
 		     (e1000_mng_mode_pt << E1000_FWSM_MODE_SHIFT)))
 			return true;
-	} else if ((hw->mac.type == e1000_82574) ||
-               (hw->mac.type == e1000_82583)) {
-		u16 data;
-		s32 ret_val;
-        
-		factps = intelReadMem32(E1000_FACTPS);
-		ret_val = e1000_read_nvm(hw, NVM_INIT_CONTROL2_REG, 1, &data);
-		if (ret_val)
-			return false;
-        
-		if (!(factps & E1000_FACTPS_MNGCG) &&
-		    ((data & E1000_NVM_INIT_CTRL2_MNGM) ==
-		     (e1000_mng_mode_pt << 13)))
-			return true;
 	} else if ((manc & E1000_MANC_SMBUS_EN) &&
                !(manc & E1000_MANC_ASF_EN)) {
 		return true;
@@ -964,9 +950,13 @@ void IntelMausi::intelRestart()
     /* Stop and cleanup txQueue. Also set the link status to down. */
     txQueue->stop();
     txQueue->flush();
-    linkUp = false;
-    setLinkStatus(kIONetworkLinkValid);
     
+    if (linkUp)
+        IOLog("Ethernet [IntelMausi]: Link down on en%u\n", netif->getUnitNumber());
+
+    setLinkStatus(kIONetworkLinkValid);
+    linkUp = false;
+
     /* Reset NIC and cleanup both descriptor rings. */
     intelDisableIRQ();
 	intelReset(&adapterData);
@@ -975,7 +965,7 @@ void IntelMausi::intelRestart()
     rxCleanedCount = rxNextDescIndex = 0;
     deadlockWarn = 0;
     forceReset = false;
-    enableEEE = false;
+    eeeMode = 0;
     adapterData.phy_hang_count = 0;
 
     /* Reinitialize NIC. */
@@ -1124,7 +1114,7 @@ void IntelMausi::intelPhyReadStatus(struct e1000_adapter *adapter)
 		ret_val |= e1e_rphy(hw, MII_ESTATUS, &phy->estatus);
         
 		if (ret_val)
-			IOLog("Ethernet [IntelMausi]: Error reading PHY register\n");
+			IOLog("Ethernet [IntelMausi]: Error reading PHY register.\n");
 	} else {
 		/* Do not read PHY registers if link is not up
 		 * Set values to typical power-on defaults
@@ -1142,3 +1132,131 @@ void IntelMausi::intelPhyReadStatus(struct e1000_adapter *adapter)
 		phy->estatus = (ESTATUS_1000_TFULL | ESTATUS_1000_THALF);
 	}
 }
+
+UInt16 IntelMausi::intelSupportsEEE(struct e1000_adapter *adapter)
+{
+    struct e1000_hw *hw = &adapter->hw;
+    struct e1000_dev_spec_ich8lan *dev_spec;
+    SInt32 error;
+    UInt16 result = 0;
+    UInt16 lpa, adv, advAddr;
+
+    if (!(adapter->flags2 & FLAG2_HAS_EEE))
+        goto done;
+    
+    dev_spec = &hw->dev_spec.ich8lan;
+    
+    if (hw->dev_spec.ich8lan.eee_disable)
+        goto done;
+    
+    switch (hw->phy.type) {
+        case e1000_phy_82579:
+            lpa = I82579_EEE_LP_ABILITY;
+            advAddr = I82579_EEE_ADVERTISEMENT;
+            break;
+            
+        case e1000_phy_i217:
+            lpa = I217_EEE_LP_ABILITY;
+            advAddr = I217_EEE_ADVERTISEMENT;
+            break;
+            
+        default:
+            goto done;
+    }
+    error = hw->phy.ops.acquire(hw);
+    
+    if (error)
+        goto done;
+
+    /* Save off link partner's EEE ability */
+    error = e1000_read_emi_reg_locked(hw, lpa, &dev_spec->eee_lp_ability);
+    
+    if (error)
+        goto release;
+    
+    /* Read EEE advertisement */
+    error = e1000_read_emi_reg_locked(hw, advAddr, &adv);
+    
+    if (error)
+        goto release;
+
+    /* Enable EEE only for speeds in which the link partner is
+     * EEE capable and for which we advertise EEE.
+     */
+    if (adv & dev_spec->eee_lp_ability & I82579_EEE_1000_SUPPORTED)
+        result |= I82579_LPI_CTRL_1000_ENABLE;
+    
+    if (adv & dev_spec->eee_lp_ability & I82579_EEE_100_SUPPORTED)
+        result |= I82579_LPI_CTRL_100_ENABLE;
+
+    DebugLog("Ethernet [IntelMausi]: EEE mode = 0x%04x, adv=0x%04x, lpa=0x%04x\n", result, adv, dev_spec->eee_lp_ability);
+
+release:
+    hw->phy.ops.release(hw);
+
+done:
+    return result;
+}
+
+SInt32 IntelMausi::intelEnableEEE(struct e1000_hw *hw, UInt16 mode)
+{
+    SInt32 error = 0;
+    UInt16 lpa, pcsStatus, advAddr, lpiCtrl, data;
+
+    switch (hw->phy.type) {
+        case e1000_phy_82579:
+            lpa = I82579_EEE_LP_ABILITY;
+            pcsStatus = I82579_EEE_PCS_STATUS;
+            advAddr = I82579_EEE_ADVERTISEMENT;
+            break;
+            
+        case e1000_phy_i217:
+            lpa = I217_EEE_LP_ABILITY;
+            pcsStatus = I217_EEE_PCS_STATUS;
+            advAddr = I217_EEE_ADVERTISEMENT;
+            break;
+            
+        default:
+            goto done;
+    }
+    error = hw->phy.ops.acquire(hw);
+    
+    if (error)
+        goto done;
+    
+    error = e1e_rphy_locked(hw, I82579_LPI_CTRL, &lpiCtrl);
+    
+    if (error)
+        goto release;
+
+    /* Clear bits that enable EEE in various speeds */
+    lpiCtrl &= ~I82579_LPI_CTRL_ENABLE_MASK;
+
+    /* Set the new EEE mode. */
+    lpiCtrl |= mode;
+    
+    if (hw->phy.type == e1000_phy_82579) {
+        error = e1000_read_emi_reg_locked(hw, I82579_LPI_PLL_SHUT, &data);
+        
+        if (error)
+            goto release;
+        
+        data &= ~I82579_LPI_100_PLL_SHUT;
+        error = e1000_write_emi_reg_locked(hw, I82579_LPI_PLL_SHUT, data);
+    }
+    
+    /* R/Clr IEEE MMD 3.1 bits 11:10 - Tx/Rx LPI Received */
+    error = e1000_read_emi_reg_locked(hw, pcsStatus, &data);
+    
+    if (error)
+        goto release;
+    
+    error = e1e_wphy_locked(hw, I82579_LPI_CTRL, lpiCtrl);
+    
+release:
+    hw->phy.ops.release(hw);
+    
+done:
+    return error;
+}
+

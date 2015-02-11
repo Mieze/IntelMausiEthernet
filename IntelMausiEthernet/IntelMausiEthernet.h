@@ -52,6 +52,8 @@ enum
     MEDIUM_INDEX_1000FDFC,
     MEDIUM_INDEX_1000FDEEE,
     MEDIUM_INDEX_1000FDFCEEE,
+    MEDIUM_INDEX_100FDEEE,
+    MEDIUM_INDEX_100FDFCEEE,
 	MEDIUM_INDEX_COUNT
 };
 
@@ -79,7 +81,7 @@ enum {
 #define kTxSpareDescs   16
 
 /* The number of descriptors must be a power of 2. */
-#define kNumTxDesc      2048    /* Number of Tx descriptors */
+#define kNumTxDesc      1024    /* Number of Tx descriptors */
 #define kNumRxDesc      512     /* Number of Rx descriptors */
 #define kTxLastDesc    (kNumTxDesc - 1)
 #define kRxLastDesc    (kNumRxDesc - 1)
@@ -351,7 +353,10 @@ private:
     void intelRestart();
     bool intelCheckLink(struct e1000_adapter *adapter);
     void intelPhyReadStatus(struct e1000_adapter *adapter);
-
+    
+    UInt16 intelSupportsEEE(struct e1000_adapter *adapter);
+    SInt32 intelEnableEEE(struct e1000_hw *hw, UInt16 mode);
+    
     inline void intelGetChecksumResult(mbuf_t m, UInt32 status);
 
     /* timer action */
@@ -410,6 +415,7 @@ private:
     UInt32 intrThrValue;
     struct e1000_adapter adapterData;
     struct pci_dev pciDeviceData;
+    UInt16 eeeMode;
     UInt8 pcieCapOffset;
     UInt8 pciPMCtrlOffset;
     
@@ -421,7 +427,6 @@ private:
     bool linkUp;
     bool stalled;
     bool forceReset;
-    bool enableEEE;
     bool wolCapable;
     bool enableTSO4;
     bool enableTSO6;

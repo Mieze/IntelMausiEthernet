@@ -33,7 +33,9 @@ static IOMediumType mediumTypeArray[MEDIUM_INDEX_COUNT] = {
     (kIOMediumEthernet1000BaseT | kIOMediumOptionFullDuplex),
     (kIOMediumEthernet1000BaseT | kIOMediumOptionFullDuplex | kIOMediumOptionFlowControl),
     (kIOMediumEthernet1000BaseT | kIOMediumOptionFullDuplex | kIOMediumOptionEEE),
-    (kIOMediumEthernet1000BaseT | kIOMediumOptionFullDuplex | kIOMediumOptionFlowControl | kIOMediumOptionEEE)
+    (kIOMediumEthernet1000BaseT | kIOMediumOptionFullDuplex | kIOMediumOptionFlowControl | kIOMediumOptionEEE),
+    (kIOMediumEthernet100BaseTX | kIOMediumOptionFullDuplex | kIOMediumOptionEEE),
+    (kIOMediumEthernet100BaseTX | kIOMediumOptionFullDuplex | kIOMediumOptionFlowControl | kIOMediumOptionEEE)
 };
 
 static UInt32 mediumSpeedArray[MEDIUM_INDEX_COUNT] = {
@@ -46,7 +48,9 @@ static UInt32 mediumSpeedArray[MEDIUM_INDEX_COUNT] = {
     1000 * MBit,
     1000 * MBit,
     1000 * MBit,
-    1000 * MBit
+    1000 * MBit,
+    100 * MBit,
+    100 * MBit
 };
 
 static const char *onName = "enabled";
@@ -113,7 +117,7 @@ bool IntelMausi::setupMediumDict()
     } else if (adapterData.flags2 & FLAG2_HAS_EEE) {
         count = MEDIUM_INDEX_COUNT;
     } else {
-        count = MEDIUM_INDEX_COUNT - 2;
+        count = MEDIUM_INDEX_COUNT - 4;
     }
     mediumDict = OSDictionary::withCapacity(count + 1);
     

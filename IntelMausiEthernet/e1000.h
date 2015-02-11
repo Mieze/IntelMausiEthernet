@@ -129,13 +129,13 @@ struct e1000_info;
 #define E1000_RDTR_FPD (1 << 31)
 
 enum e1000_boards {
+    
+#if DISABLED_CODE
 	board_82571,
 	board_82572,
 	board_82573,
 	board_82574,
 	board_82583,
-    
-#if DISABLED_CODE
     board_80003es2lan,
 #endif /* DISABLED_CODE */
 

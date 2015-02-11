@@ -299,6 +299,8 @@ s32 e1000e_mng_write_dhcp_info(struct e1000_hw *hw, u8 *buffer, u16 length)
 	return 0;
 }
 
+#if DISABLED_CODE
+
 /**
  *  e1000e_enable_mng_pass_thru - Check if management passthrough is needed
  *  @hw: pointer to the HW structure
@@ -345,3 +347,6 @@ bool e1000e_enable_mng_pass_thru(struct e1000_hw *hw)
 
 	return false;
 }
+
+#endif /* DISABLED_CODE */
+

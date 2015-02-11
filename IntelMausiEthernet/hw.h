@@ -637,12 +637,12 @@ struct e1000_fc_info {
 	enum e1000_fc_mode requested_mode; /* FC mode requested by caller */
 };
 
+#if DISABLED_CODE
+
 struct e1000_dev_spec_82571 {
 	bool laa_is_present;
 	u32 smb_counter;
 };
-
-#if DISABLED_CODE
 
 struct e1000_dev_spec_80003es2lan {
 	bool mdic_wa_enable;
@@ -687,16 +687,15 @@ struct e1000_hw {
 	struct e1000_host_mng_dhcp_cookie mng_cookie;
 
 	union {
-		struct e1000_dev_spec_82571 e82571;
+		//struct e1000_dev_spec_82571 e82571;
 		//struct e1000_dev_spec_80003es2lan e80003es2lan;
 		struct e1000_dev_spec_ich8lan ich8lan;
 	} dev_spec;
 };
 
-#include "82571.h"
-
 #if DISABLED_CODE
 
+#include "82571.h"
 #include "80003es2lan.h"
 
 #endif /* DISABLED_CODE */
