@@ -73,6 +73,12 @@ enum {
     kFlowControlTypeCount
 };
 
+enum {
+    kEEETypeNo = 0,
+    kEEETypeYes = 1,
+    kEEETypeCount
+};
+
 #define kTransmitQueueCapacity  1000
 
 /* With up to 40 segments we should be on the save side. */
@@ -103,7 +109,7 @@ enum {
 #define kTxQueueWakeTreshhold (kNumTxDesc / 4)
 
 /* transmitter deadlock treshhold in seconds. */
-#define kTxDeadlockTreshhold 10
+#define kTxDeadlockTreshhold 5
 
 /* IP specific stuff */
 #define kMinL4HdrOffsetV4 34
@@ -353,6 +359,8 @@ private:
     void intelRestart();
     bool intelCheckLink(struct e1000_adapter *adapter);
     void intelPhyReadStatus(struct e1000_adapter *adapter);
+    void intelInitPhyWakeup(UInt32 wufc);
+    void intelFlushLPIC();
     
     UInt16 intelSupportsEEE(struct e1000_adapter *adapter);
     SInt32 intelEnableEEE(struct e1000_hw *hw, UInt16 mode);
@@ -428,6 +436,7 @@ private:
     bool stalled;
     bool forceReset;
     bool wolCapable;
+    bool wolActive;
     bool enableTSO4;
     bool enableTSO6;
     bool enableCSO6;

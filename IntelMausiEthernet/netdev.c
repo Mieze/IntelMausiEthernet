@@ -5972,8 +5972,6 @@ static int e1000_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
 	}
 }
 
-#endif /* DISABLED_CODE */
-
 static int e1000_init_phy_wakeup(struct e1000_adapter *adapter, u32 wufc)
 {
 	struct e1000_hw *hw = &adapter->hw;
@@ -6047,8 +6045,6 @@ release:
 
 	return retval;
 }
-
-#if DISABLED_CODE
 
 static void e1000e_flush_lpic(struct pci_dev *pdev)
 {

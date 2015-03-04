@@ -98,6 +98,11 @@ static const char *flowControlNames[kFlowControlTypeCount] = {
     "Rx/Tx flow-control",
 };
 
+static const char* eeeNames[kEEETypeCount] = {
+    "",
+    ", EEE"
+};
+
 #pragma mark --- public methods ---
 
 OSDefineMetaClassAndStructors(IntelMausi, super)
@@ -146,6 +151,7 @@ bool IntelMausi::init(OSDictionary *properties)
         adapterData.pdev = &pciDeviceData;
         mtu = ETH_DATA_LEN;
         wolCapable = false;
+        wolActive = false;
         enableTSO4 = false;
         enableTSO6 = false;
         enableCSO6 = false;
@@ -909,7 +915,7 @@ IOReturn IntelMausi::setWakeOnMagicPacket(bool active)
     DebugLog("setWakeOnMagicPacket() ===>\n");
     
     if (wolCapable) {
-        //hw.sleep_ctrl = active ? (ALX_SLEEP_WOL_MAGIC) : 0;
+        wolActive = active;
         DebugLog("Ethernet [IntelMausi]: Wake on magic packet %s.\n", active ? "enabled" : "disabled");
         result = kIOReturnSuccess;
     }
@@ -1311,13 +1317,15 @@ void IntelMausi::setLinkUp()
     const char *flowName;
     const char *speedName;
     const char *duplexName;
+    const char *eeeName;
     UInt64 mediumSpeed;
     UInt32 mediumIndex = MEDIUM_INDEX_AUTO;
     UInt32 fcIndex;
     UInt32 tctl, rctl, ctrl;
     
     eeeMode = 0;
-
+    eeeName = eeeNames[kEEETypeNo];
+    
     /* update snapshot of PHY registers on LSC */
     intelPhyReadStatus(&adapterData);
     hw->mac.ops.get_link_up_info(hw, &adapterData.link_speed, &adapterData.link_duplex);
@@ -1391,12 +1399,14 @@ void IntelMausi::setLinkUp()
         if (fcIndex == kFlowControlTypeNone) {
             if (eeeMode) {
                 mediumIndex = MEDIUM_INDEX_1000FDEEE;
+                eeeName = eeeNames[kEEETypeYes];
             } else {
                 mediumIndex = MEDIUM_INDEX_1000FD;
             }
         } else {
             if (eeeMode) {
                 mediumIndex = MEDIUM_INDEX_1000FDFCEEE;
+                eeeName = eeeNames[kEEETypeYes];
             } else {
                 mediumIndex = MEDIUM_INDEX_1000FDFC;
             }
@@ -1413,12 +1423,14 @@ void IntelMausi::setLinkUp()
             if (fcIndex == kFlowControlTypeNone) {
                 if (eeeMode) {
                     mediumIndex = MEDIUM_INDEX_100FDEEE;
+                    eeeName = eeeNames[kEEETypeYes];
                 } else {
                     mediumIndex = MEDIUM_INDEX_100FD;
                 }
             } else {
                 if (eeeMode) {
                     mediumIndex = MEDIUM_INDEX_100FDFCEEE;
+                    eeeName = eeeNames[kEEETypeYes];
                 } else {
                     mediumIndex = MEDIUM_INDEX_100FDFC;
                 }
@@ -1450,7 +1462,7 @@ void IntelMausi::setLinkUp()
         stalled = false;
         DebugLog("Ethernet [IntelMausi]: Restart stalled queue!\n");
     }
-    IOLog("Ethernet [IntelMausi]: Link up on en%u, %s, %s, %s\n", netif->getUnitNumber(), speedName, duplexName, flowName);
+    IOLog("Ethernet [IntelMausi]: Link up on en%u, %s, %s, %s%s\n", netif->getUnitNumber(), speedName, duplexName, flowName, eeeName);
 
     DebugLog("Ethernet [IntelMausi]: CTRL=0x%08x\n", intelReadMem32(E1000_CTRL));
     DebugLog("Ethernet [IntelMausi]: CTRL_EXT=0x%08x\n", intelReadMem32(E1000_CTRL_EXT));
@@ -1771,59 +1783,59 @@ void IntelMausi::updateStatistics(struct e1000_adapter *adapter)
 {
     struct e1000_hw *hw = &adapter->hw;
     
-	adapter->stats.crcerrs += er32(CRCERRS);
-	adapter->stats.gprc += er32(GPRC);
-	adapter->stats.gorc += er32(GORCL);
-	er32(GORCH);		/* Clear gorc */
-	adapter->stats.bprc += er32(BPRC);
-	adapter->stats.mprc += er32(MPRC);
-	adapter->stats.roc += er32(ROC);
+	adapter->stats.crcerrs += intelReadMem32(E1000_CRCERRS);
+	adapter->stats.gprc += intelReadMem32(E1000_GPRC);
+	adapter->stats.gorc += intelReadMem32(E1000_GORCL);
+	intelReadMem32(E1000_GORCH);		/* Clear gorc */
+	adapter->stats.bprc += intelReadMem32(E1000_BPRC);
+	adapter->stats.mprc += intelReadMem32(E1000_MPRC);
+	adapter->stats.roc += intelReadMem32(E1000_ROC);
     
-	adapter->stats.mpc += er32(MPC);
+	adapter->stats.mpc += intelReadMem32(E1000_MPC);
     
 	/* Half-duplex statistics */
 	if (adapter->link_duplex == HALF_DUPLEX) {
 		if (adapter->flags2 & FLAG2_HAS_PHY_STATS) {
 			e1000e_update_phy_stats(adapter);
 		} else {
-			adapter->stats.scc += er32(SCC);
-			adapter->stats.ecol += er32(ECOL);
-			adapter->stats.mcc += er32(MCC);
-			adapter->stats.latecol += er32(LATECOL);
-			adapter->stats.dc += er32(DC);
+			adapter->stats.scc += intelReadMem32(E1000_SCC);
+			adapter->stats.ecol += intelReadMem32(E1000_ECOL);
+			adapter->stats.mcc += intelReadMem32(E1000_MCC);
+			adapter->stats.latecol += intelReadMem32(E1000_LATECOL);
+			adapter->stats.dc += intelReadMem32(E1000_DC);
             
-			hw->mac.collision_delta = er32(COLC);
+			hw->mac.collision_delta = intelReadMem32(E1000_COLC);
             
 			if ((hw->mac.type != e1000_82574) &&
 			    (hw->mac.type != e1000_82583))
-				adapter->stats.tncrs += er32(TNCRS);
+				adapter->stats.tncrs += intelReadMem32(E1000_TNCRS);
 		}
 		adapter->stats.colc += hw->mac.collision_delta;
 	}
     
-	adapter->stats.xonrxc += er32(XONRXC);
-	adapter->stats.xontxc += er32(XONTXC);
-	adapter->stats.xoffrxc += er32(XOFFRXC);
-	adapter->stats.xofftxc += er32(XOFFTXC);
-	adapter->stats.gptc += er32(GPTC);
-	adapter->stats.gotc += er32(GOTCL);
-	er32(GOTCH);		/* Clear gotc */
-	adapter->stats.rnbc += er32(RNBC);
-	adapter->stats.ruc += er32(RUC);
+	adapter->stats.xonrxc += intelReadMem32(E1000_XONRXC);
+	adapter->stats.xontxc += intelReadMem32(E1000_XONTXC);
+	adapter->stats.xoffrxc += intelReadMem32(E1000_XOFFRXC);
+	adapter->stats.xofftxc += intelReadMem32(E1000_XOFFTXC);
+	adapter->stats.gptc += intelReadMem32(E1000_GPTC);
+	adapter->stats.gotc += intelReadMem32(E1000_GOTCL);
+	intelReadMem32(E1000_GOTCH);		/* Clear gotc */
+	adapter->stats.rnbc += intelReadMem32(E1000_RNBC);
+	adapter->stats.ruc += intelReadMem32(E1000_RUC);
     
-	adapter->stats.mptc += er32(MPTC);
-	adapter->stats.bptc += er32(BPTC);
+	adapter->stats.mptc += intelReadMem32(E1000_MPTC);
+	adapter->stats.bptc += intelReadMem32(E1000_BPTC);
     
 	/* used for adaptive IFS */
     
-	hw->mac.tx_packet_delta = er32(TPT);
+	hw->mac.tx_packet_delta = intelReadMem32(E1000_TPT);
 	adapter->stats.tpt += hw->mac.tx_packet_delta;
     
-	adapter->stats.algnerrc += er32(ALGNERRC);
-	adapter->stats.rxerrc += er32(RXERRC);
-	adapter->stats.cexterr += er32(CEXTERR);
-	adapter->stats.tsctc += er32(TSCTC);
-	adapter->stats.tsctfc += er32(TSCTFC);
+	adapter->stats.algnerrc += intelReadMem32(E1000_ALGNERRC);
+	adapter->stats.rxerrc += intelReadMem32(E1000_RXERRC);
+	adapter->stats.cexterr += intelReadMem32(E1000_CEXTERR);
+	adapter->stats.tsctc += intelReadMem32(E1000_TSCTC);
+	adapter->stats.tsctfc += intelReadMem32(E1000_TSCTFC);
     
     netStats->inputPackets = (UInt32)adapter->stats.gprc;
     netStats->inputErrors = (UInt32)(adapter->stats.rxerrc + adapter->stats.crcerrs
@@ -1863,26 +1875,43 @@ bool IntelMausi::checkForDeadlock()
     
     if (((txDescDoneCount == txDescDoneLast) && (txNumFreeDesc < kNumTxDesc)) || (adapterData.phy_hang_count > 1)) {
         if (++deadlockWarn >= kTxDeadlockTreshhold) {
-#ifdef DEBUG
             mbuf_t m = txBufArray[txDirtyIndex].mbuf;
+            UInt32 pktSize;
             UInt16 i, index;
             UInt16 stalledIndex = txDirtyIndex;
             UInt8 data;
             
+            IOLog("Ethernet [IntelMausi]: Tx stalled? Resetting chipset. txDirtyDescIndex=%u.\n", txDirtyIndex);
+
             for (i = 0; i < 30; i++) {
                 index = ((stalledIndex - 10 + i) & kTxDescMask);
                 IOLog("Ethernet [IntelMausi]: desc[%u]: lower=0x%08x, upper=0x%08x, addr=0x%016llx, mbuf=0x%016llx.\n", index, txDescArray[index].lower.data, txDescArray[index].upper.data, txDescArray[index].buffer_addr, (UInt64)txBufArray[index].mbuf);
             }
             if (m) {
-                IOLog("Ethernet [IntelMausi]: Packet: ");
-                for (i = 0; i < 100; i++) {
+                pktSize = (UInt32)mbuf_pkthdr_len(m);
+                IOLog("Ethernet [IntelMausi]: packet size=%u, header size=%u.\n", pktSize, (UInt32)mbuf_len(m));
+
+                IOLog("Ethernet [IntelMausi]: MAC-header: ");
+                for (i = 0; i < 14; i++) {
+                    mbuf_copydata(m, i, 1, &data);
+                    IOLog(" 0x%02x", data);
+                }
+                IOLog("\n");
+                
+                IOLog("Ethernet [IntelMausi]: IP-header: ");
+                for (i = 14; i < 34; i++) {
+                    mbuf_copydata(m, i, 1, &data);
+                    IOLog(" 0x%02x", data);
+                }
+                IOLog("\n");
+                
+                IOLog("Ethernet [IntelMausi]: TCP-Header / Data: ");
+                for (i = 34; i < 100; i++) {
                     mbuf_copydata(m, i, 1, &data);
                     IOLog(" 0x%02x", data);
                 }
                 IOLog("\n");
             }
-#endif
-            IOLog("Ethernet [IntelMausi]: Tx stalled? Resetting chipset. txDirtyDescIndex=%u, IMS=0x%x.\n", txDirtyIndex, intelReadMem32(E1000_IMS));
             etherStats->dot3TxExtraEntry.resets++;
             intelRestart();
             deadlock = true;
@@ -1904,6 +1933,28 @@ static inline void prepareTSO4(mbuf_t m, UInt32 *mssHeaderSize, UInt32 *payloadS
 {
     struct iphdr *ipHdr = (struct iphdr *)((UInt8 *)mbuf_data(m) + ETHER_HDR_LEN);
     struct tcphdr *tcpHdr = (struct tcphdr *)((UInt8 *)ipHdr + sizeof(struct iphdr));
+    UInt16 *addr = (UInt16 *)&ipHdr->saddr;
+    UInt32 csum32 = 6;
+    UInt32 plen = (UInt32)mbuf_pkthdr_len(m);
+    UInt32 hlen = (tcpHdr->th_off << 2) + kMinL4HdrOffsetV4;
+    
+    ipHdr->tot_len = 0;
+    
+    csum32 += ntohs(*addr++);
+    csum32 += ntohs(*addr++);
+    csum32 += ntohs(*addr++);
+    csum32 += ntohs(*addr);
+    csum32 += (csum32 >> 16);
+    tcpHdr->th_sum = htons((UInt16)csum32);
+    
+    *mssHeaderSize = ((*mssHeaderSize << 16) | (hlen << 8));
+    *payloadSize = plen - hlen;
+}
+/*
+static inline void prepareTSO4(mbuf_t m, UInt32 *mssHeaderSize, UInt32 *payloadSize)
+{
+    struct iphdr *ipHdr = (struct iphdr *)((UInt8 *)mbuf_data(m) + ETHER_HDR_LEN);
+    struct tcphdr *tcpHdr = (struct tcphdr *)((UInt8 *)ipHdr + sizeof(struct iphdr));
     UInt32 plen = ntohs(ipHdr->tot_len) - sizeof(struct iphdr);
     UInt32 csum = ntohs(tcpHdr->th_sum) - plen;
     UInt32 hlen = tcpHdr->th_off << 2;
@@ -1916,7 +1967,31 @@ static inline void prepareTSO4(mbuf_t m, UInt32 *mssHeaderSize, UInt32 *payloadS
     *mssHeaderSize = ((*mssHeaderSize << 16) | ((hlen + kMinL4HdrOffsetV4) << 8));
     *payloadSize = plen - hlen;
 }
+*/
+static inline void prepareTSO6(mbuf_t m, UInt32 *mssHeaderSize, UInt32 *payloadSize)
+{
+    struct ip6_hdr *ip6Hdr = (struct ip6_hdr *)((UInt8 *)mbuf_data(m) + ETHER_HDR_LEN);
+    struct tcphdr *tcpHdr = (struct tcphdr *)((UInt8 *)ip6Hdr + sizeof(struct ip6_hdr));
+    UInt16 *addr = (UInt16 *)&ip6Hdr->ip6_src;
+    UInt32 csum32 = 6;
+    UInt32 plen = (UInt32)mbuf_pkthdr_len(m);
+    UInt32 hlen = (tcpHdr->th_off << 2) + kMinL4HdrOffsetV6;
+    UInt32 i;
+    
+    ip6Hdr->ip6_ctlun.ip6_un1.ip6_un1_plen = 0;
 
+    for (i = 0; i < 16; i++)
+        csum32 += ntohs(*addr++);
+
+    csum32 += (csum32 >> 16);
+    tcpHdr->th_sum = htons((UInt16)csum32);
+    
+    //DebugLog("Ethernet [IntelMausi]: csum=0x%llx\n", csum64);
+
+    *mssHeaderSize = ((*mssHeaderSize << 16) | (hlen << 8));
+    *payloadSize = plen - hlen;
+}
+/*
 static inline void prepareTSO6(mbuf_t m, UInt32 *mssHeaderSize, UInt32 *payloadSize)
 {
     struct ip6_hdr *ip6Hdr = (struct ip6_hdr *)((UInt8 *)mbuf_data(m) + ETHER_HDR_LEN);
@@ -1925,12 +2000,13 @@ static inline void prepareTSO6(mbuf_t m, UInt32 *mssHeaderSize, UInt32 *payloadS
     UInt32 csum = ntohs(tcpHdr->th_sum) - plen;
     UInt32 hlen = tcpHdr->th_off << 2;
     
-    //DebugLog("Ethernet [IntelMausi]: hlen=%u, mss=%u\n", hlen, *mssHeaderSize);
-    
     csum += (csum >> 16);
     ip6Hdr->ip6_ctlun.ip6_un1.ip6_un1_plen = 0;
     tcpHdr->th_sum = htons((UInt16)csum);
     
+    //DebugLog("Ethernet [IntelMausi]: csum=0x%04x\n", (UInt16)(csum & 0xffff));
+
     *mssHeaderSize = ((*mssHeaderSize << 16) | ((hlen + kMinL4HdrOffsetV6) << 8));
     *payloadSize = plen - hlen;
 }
+*/

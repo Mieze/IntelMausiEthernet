@@ -169,7 +169,7 @@ IOReturn IntelMausi::setPowerStateSleepAction(OSObject *owner, void *arg1, void 
         
         val16 &= ~(kPCIPMCSPowerStateMask | kPCIPMCSPMEStatus | kPCIPMCSPMEEnable);
         
-        if (ethCtlr->adapterData.wol)
+        if (ethCtlr->wolActive)
             val16 |= (kPCIPMCSPMEStatus | kPCIPMCSPMEEnable | kPCIPMCSPowerStateD3);
         else
             val16 |= kPCIPMCSPowerStateD3;
@@ -252,9 +252,64 @@ void IntelMausi::intelEnable()
 
 void IntelMausi::intelDisable()
 {
-    intelDown(&adapterData, true);
-    //e1000_power_down_phy(&adapterData);
+    struct e1000_hw *hw = &adapterData.hw;
+    UInt32 wufc = adapterData.wol;
+    UInt32 ctrl, ctrlExt, rctl, status;
     
+    /* Flush LPIC. */
+    intelFlushLPIC();
+
+    status = intelReadMem32(E1000_STATUS);
+    
+    if (status & E1000_STATUS_LU)
+        wufc &= ~E1000_WUFC_LNKC;
+
+    if (wolActive && wufc) {
+        intelDown(&adapterData, false);
+        intelSetupRxControl(&adapterData);
+        
+        rctl = intelReadMem32(E1000_RCTL);
+        rctl &= ~(E1000_RCTL_UPE | E1000_RCTL_MPE);
+        
+        /* turn on all-multi mode if wake on multicast is enabled */
+        if (wufc & E1000_WUFC_MC)
+            rctl |= E1000_RCTL_MPE;
+
+        intelWriteMem32(E1000_RCTL, rctl);
+
+        ctrl = intelReadMem32(E1000_CTRL);
+        ctrl |= E1000_CTRL_ADVD3WUC;
+        
+        if (!(adapterData.flags2 & FLAG2_HAS_PHY_WAKEUP))
+            ctrl |= E1000_CTRL_EN_PHY_PWR_MGMT;
+        
+        intelWriteMem32(E1000_CTRL, ctrl);
+        
+        if (adapterData.hw.phy.media_type == e1000_media_type_fiber ||
+            adapterData.hw.phy.media_type == e1000_media_type_internal_serdes) {
+            /* keep the laser running in D3 */
+            ctrlExt = intelReadMem32(E1000_CTRL_EXT);
+            ctrlExt |= E1000_CTRL_EXT_SDP3_DATA;
+            intelWriteMem32(E1000_CTRL_EXT, ctrlExt);
+        }
+        if (adapterData.flags & FLAG_IS_ICH)
+            e1000_suspend_workarounds_ich8lan(hw);
+        
+        if (adapterData.flags2 & FLAG2_HAS_PHY_WAKEUP) {
+            /* enable wakeup by the PHY */
+            intelInitPhyWakeup(wufc);
+        } else {
+            /* enable wakeup by the MAC */
+            intelWriteMem32(E1000_WUFC, wufc);
+            intelWriteMem32(E1000_WUC, E1000_WUC_PME_EN);
+        }
+        DebugLog("Ethernet [IntelMausi]: WUFC=0x%08x, .\n", wufc);
+    } else {
+        intelDown(&adapterData, true);
+        intelWriteMem32(E1000_WUC, 0);
+        intelWriteMem32(E1000_WUFC, 0);
+        intelPowerDownPhy(&adapterData);
+    }
     /* If AMT is enabled, let the firmware know that the network
      * interface is now closed
      */
@@ -287,7 +342,6 @@ void IntelMausi::intelConfigure(struct e1000_adapter *adapter)
 void IntelMausi::intelConfigureTx(struct e1000_adapter *adapter)
 {
 	struct e1000_hw *hw = &adapter->hw;
-	//struct e1000_ring *tx_ring = adapter->tx_ring;
 	UInt32 tctl, tarc;
     UInt32 txdctl;
     
@@ -408,7 +462,6 @@ void IntelMausi::intelSetupRxControl(struct e1000_adapter *adapter)
 void IntelMausi::intelConfigureRx(struct e1000_adapter *adapter)
 {
 	struct e1000_hw *hw = &adapter->hw;
-	//struct e1000_ring *rx_ring = adapter->rx_ring;
 	u32 rctl, rxcsum, ctrl_ext;
     
 	/* disable receives while setting up the descriptors */
@@ -529,6 +582,7 @@ void IntelMausi::intelInitManageabilityPt(struct e1000_adapter *adapter)
         default:
             manc2h |= (E1000_MANC2H_PORT_623 | E1000_MANC2H_PORT_664);
             break;
+            
         case e1000_82574:
         case e1000_82583:
             /* Check if IPMI pass-through decision filter already exists;
@@ -910,24 +964,23 @@ static const u32 rsskey[10] = {
 
 void IntelMausi::intelSetupRssHash(struct e1000_adapter *adapter)
 {
-	struct e1000_hw *hw = &adapter->hw;
-	u32 mrqc, rxcsum;
+	UInt32 mrqc, rxcsum;
 	int i;
     
 	for (i = 0; i < 10; i++)
-		ew32(RSSRK(i), rsskey[i]);
+		intelWriteMem32(E1000_RSSRK(i), rsskey[i]);
     
 	/* Direct all traffic to queue 0 */
 	for (i = 0; i < 32; i++)
-		ew32(RETA(i), 0);
+		intelWriteMem32(E1000_RETA(i), 0);
     
 	/* Disable raw packet checksumming so that RSS hash is placed in
 	 * descriptor on writeback.
 	 */
-	rxcsum = er32(RXCSUM);
+	rxcsum = intelReadMem32(E1000_RXCSUM);
 	rxcsum |= E1000_RXCSUM_PCSD;
     
-	ew32(RXCSUM, rxcsum);
+	intelWriteMem32(E1000_RXCSUM, rxcsum);
     
 	mrqc = (E1000_MRQC_RSS_FIELD_IPV4 |
             E1000_MRQC_RSS_FIELD_IPV4_TCP |
@@ -936,7 +989,7 @@ void IntelMausi::intelSetupRssHash(struct e1000_adapter *adapter)
             E1000_MRQC_RSS_FIELD_IPV6_TCP_EX);
     
     mrqc |= 0x01;
-	ew32(MRQC, mrqc);
+	intelWriteMem32(E1000_MRQC, mrqc);
 }
 
 
@@ -1133,6 +1186,107 @@ void IntelMausi::intelPhyReadStatus(struct e1000_adapter *adapter)
 	}
 }
 
+void IntelMausi::intelInitPhyWakeup(UInt32 wufc)
+{
+    struct e1000_hw *hw = &adapterData.hw;
+    u32 i, mac_reg, wuc;
+    u16 phy_reg, wuc_enable;
+    int error;
+    
+    /* copy MAC RARs to PHY RARs */
+    e1000_copy_rx_addrs_to_phy_ich8lan(hw);
+    
+    error = hw->phy.ops.acquire(hw);
+    
+    if (error) {
+        DebugLog("Ethernet [IntelMausi]: Failed to acquire PHY.\n");
+        return;
+    }
+    /* Enable access to wakeup registers on and set page to BM_WUC_PAGE */
+    error = e1000_enable_phy_wakeup_reg_access_bm(hw, &wuc_enable);
+    
+    if (error) {
+        DebugLog("Ethernet [IntelMausi]: Failed to access PHY wakeup registers.\n");
+        goto release;
+    }
+    /* copy MAC MTA to PHY MTA - only needed for pchlan */
+    for (i = 0; i < hw->mac.mta_reg_count; i++) {
+        mac_reg = E1000_READ_REG_ARRAY(hw, E1000_MTA, i);
+        hw->phy.ops.write_reg_page(hw, BM_MTA(i),
+                                   (u16)(mac_reg & 0xFFFF));
+        hw->phy.ops.write_reg_page(hw, BM_MTA(i) + 1,
+                                   (u16)((mac_reg >> 16) & 0xFFFF));
+    }
+    /* configure PHY Rx Control register */
+    hw->phy.ops.read_reg_page(hw, BM_RCTL, &phy_reg);
+    mac_reg = er32(RCTL);
+    
+    if (mac_reg & E1000_RCTL_UPE)
+        phy_reg |= BM_RCTL_UPE;
+    
+    if (mac_reg & E1000_RCTL_MPE)
+        phy_reg |= BM_RCTL_MPE;
+    
+    phy_reg &= ~(BM_RCTL_MO_MASK);
+    
+    if (mac_reg & E1000_RCTL_MO_3)
+        phy_reg |= (((mac_reg & E1000_RCTL_MO_3) >> E1000_RCTL_MO_SHIFT) << BM_RCTL_MO_SHIFT);
+    
+    if (mac_reg & E1000_RCTL_BAM)
+        phy_reg |= BM_RCTL_BAM;
+    
+    if (mac_reg & E1000_RCTL_PMCF)
+        phy_reg |= BM_RCTL_PMCF;
+    
+    mac_reg = er32(CTRL);
+    
+    if (mac_reg & E1000_CTRL_RFCE)
+        phy_reg |= BM_RCTL_RFCE;
+    
+    hw->phy.ops.write_reg_page(hw, BM_RCTL, phy_reg);
+    
+    wuc = E1000_WUC_PME_EN;
+    
+    if (wufc & (E1000_WUFC_MAG | E1000_WUFC_LNKC))
+        wuc |= E1000_WUC_APME;
+    
+    /* enable PHY wakeup in MAC register */
+    ew32(WUFC, wufc);
+    ew32(WUC, (E1000_WUC_PHY_WAKE | E1000_WUC_APMPME | E1000_WUC_PME_STATUS | wuc));
+    
+    /* configure and enable PHY wakeup in PHY registers */
+    hw->phy.ops.write_reg_page(hw, BM_WUFC, wufc);
+    hw->phy.ops.write_reg_page(hw, BM_WUC, wuc);
+    
+    /* activate PHY wakeup */
+    wuc_enable |= BM_WUC_ENABLE_BIT | BM_WUC_HOST_WU_BIT;
+    error = e1000_disable_phy_wakeup_reg_access_bm(hw, &wuc_enable);
+    
+    if (error)
+        DebugLog("Ethernet [IntelMausi]: Failed to set PHY Host Wakeup bit.\n");
+    
+release:
+    hw->phy.ops.release(hw);
+    
+}
+
+void IntelMausi::intelFlushLPIC()
+{
+    struct e1000_hw *hw = &adapterData.hw;
+    UInt32 error, lpic;
+    
+    /* Flush LPIC. */
+    error = hw->phy.ops.acquire(hw);
+    
+    if (error)
+        return;
+    
+    lpic = intelReadMem32(E1000_LPIC);
+    DebugLog("Ethernet [IntelMausi]: LPIC=%0x08x.\n", lpic);
+
+    hw->phy.ops.release(hw);
+}
+
 UInt16 IntelMausi::intelSupportsEEE(struct e1000_adapter *adapter)
 {
     struct e1000_hw *hw = &adapter->hw;
@@ -1201,19 +1355,15 @@ done:
 SInt32 IntelMausi::intelEnableEEE(struct e1000_hw *hw, UInt16 mode)
 {
     SInt32 error = 0;
-    UInt16 lpa, pcsStatus, advAddr, lpiCtrl, data;
+    UInt16 pcsStatus, lpiCtrl, data;
 
     switch (hw->phy.type) {
         case e1000_phy_82579:
-            lpa = I82579_EEE_LP_ABILITY;
             pcsStatus = I82579_EEE_PCS_STATUS;
-            advAddr = I82579_EEE_ADVERTISEMENT;
             break;
             
         case e1000_phy_i217:
-            lpa = I217_EEE_LP_ABILITY;
             pcsStatus = I217_EEE_PCS_STATUS;
-            advAddr = I217_EEE_ADVERTISEMENT;
             break;
             
         default:
