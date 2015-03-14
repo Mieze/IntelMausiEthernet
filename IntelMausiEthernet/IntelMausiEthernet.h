@@ -279,7 +279,11 @@ public:
 	virtual IOReturn enable(IONetworkInterface *netif);
 	virtual IOReturn disable(IONetworkInterface *netif);
 	
-	virtual UInt32 outputPacket(mbuf_t m, void *param);
+#ifdef __PRIVATE_SPI__
+    virtual IOReturn outputStart(IONetworkInterface *interface, IOOptionBits options );
+#else
+    virtual UInt32 outputPacket(mbuf_t m, void *param);
+#endif /* __PRIVATE_SPI__ */
 	
 	virtual void getPacketBufferConstraints(IOPacketBufferConstraints *constraints) const;
 	
@@ -433,7 +437,11 @@ private:
 	bool promiscusMode;
 	bool multicastMode;
     bool linkUp;
+    
+#ifndef __PRIVATE_SPI__
     bool stalled;
+#endif /* __PRIVATE_SPI__ */
+    
     bool forceReset;
     bool wolCapable;
     bool wolActive;

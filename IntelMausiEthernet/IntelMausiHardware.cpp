@@ -303,7 +303,7 @@ void IntelMausi::intelDisable()
             intelWriteMem32(E1000_WUFC, wufc);
             intelWriteMem32(E1000_WUC, E1000_WUC_PME_EN);
         }
-        DebugLog("Ethernet [IntelMausi]: WUFC=0x%08x, .\n", wufc);
+        DebugLog("Ethernet [IntelMausi]: WUFC=0x%08x.\n", wufc);
     } else {
         intelDown(&adapterData, true);
         intelWriteMem32(E1000_WUC, 0);
@@ -1000,10 +1000,18 @@ void IntelMausi::intelSetupRssHash(struct e1000_adapter *adapter)
 
 void IntelMausi::intelRestart()
 {
-    /* Stop and cleanup txQueue. Also set the link status to down. */
+    
+#ifdef __PRIVATE_SPI__
+    /* Stop output thread and flush txQueue */
+    netif->stopOutputThread();
+    netif->flushOutputQueue();
+#else
+    /* Stop and cleanup txQueue. */
     txQueue->stop();
     txQueue->flush();
-    
+#endif /* __PRIVATE_SPI__ */
+
+    /*  Also set the link status to down. */
     if (linkUp)
         IOLog("Ethernet [IntelMausi]: Link down on en%u\n", netif->getUnitNumber());
 
@@ -1062,18 +1070,26 @@ void IntelMausi::intelInitRxRing()
 
 void IntelMausi::intelUpdateTxDescTail(UInt32 index)
 {
-    struct e1000_hw *hw = &adapterData.hw;
-    s32 ret = __ew32_prepare(hw);
+    /* flush updates before updating hardware */
+    OSSynchronizeIO();
+    txCleanBarrierIndex = txNextDescIndex;
     
-    intelWriteMem32(E1000_TDT(0),index);
-    
-    if (!ret && (index != intelReadMem32(E1000_TDT(0)))) {
-        UInt32 tctl = intelReadMem32(E1000_TCTL);
+    if (adapterData.flags2 & FLAG2_PCIM2PCI_ARBITER_WA) {
+        struct e1000_hw *hw = &adapterData.hw;
+        s32 ret = __ew32_prepare(hw);
         
-        intelWriteMem32(E1000_TCTL, tctl & ~E1000_TCTL_EN);
-        forceReset = true;
+        intelWriteMem32(E1000_TDT(0),index);
         
-        IOLog("Ethernet [IntelMausi]: ME firmware caused invalid TDT - resetting.\n");
+        if (!ret && (index != intelReadMem32(E1000_TDT(0)))) {
+            UInt32 tctl = intelReadMem32(E1000_TCTL);
+            
+            intelWriteMem32(E1000_TCTL, tctl & ~E1000_TCTL_EN);
+            forceReset = true;
+            
+            IOLog("Ethernet [IntelMausi]: ME firmware caused invalid TDT - resetting.\n");
+        }
+    } else {
+        intelWriteMem32(E1000_TDT(0), txNextDescIndex);
     }
 }
 
@@ -1267,7 +1283,6 @@ void IntelMausi::intelInitPhyWakeup(UInt32 wufc)
     
 release:
     hw->phy.ops.release(hw);
-    
 }
 
 void IntelMausi::intelFlushLPIC()
@@ -1282,7 +1297,7 @@ void IntelMausi::intelFlushLPIC()
         return;
     
     lpic = intelReadMem32(E1000_LPIC);
-    DebugLog("Ethernet [IntelMausi]: LPIC=%0x08x.\n", lpic);
+    DebugLog("Ethernet [IntelMausi]: LPIC=0x%08x.\n", lpic);
 
     hw->phy.ops.release(hw);
 }
@@ -1392,7 +1407,7 @@ SInt32 IntelMausi::intelEnableEEE(struct e1000_hw *hw, UInt16 mode)
             goto release;
         
         data &= ~I82579_LPI_100_PLL_SHUT;
-        error = e1000_write_emi_reg_locked(hw, I82579_LPI_PLL_SHUT, data);
+        e1000_write_emi_reg_locked(hw, I82579_LPI_PLL_SHUT, data);
     }
     
     /* R/Clr IEEE MMD 3.1 bits 11:10 - Tx/Rx LPI Received */

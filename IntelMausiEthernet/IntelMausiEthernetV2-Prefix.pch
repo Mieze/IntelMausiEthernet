@@ -2,6 +2,8 @@
 // Prefix header for all source files of the 'IntelMausi' target in the 'IntelMausiEthernet' project
 //
 
+#define __PRIVATE_SPI__
+
 #ifdef __cplusplus
 extern "C" {
 #endif // __cplusplus
@@ -27,6 +29,11 @@ extern "C" {
 #endif // __cplusplus
 
 #ifdef __cplusplus
+
+typedef u_int32_t ifnet_ctl_cmd_t;
+
+#include "IONetworkInterface.h"
+#include "IONetworkController.h"
 
 #include <IOKit/network/IOMbufMemoryCursor.h>
 #include <IOKit/IOBufferMemoryDescriptor.h>

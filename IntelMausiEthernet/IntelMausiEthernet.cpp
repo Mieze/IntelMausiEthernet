@@ -138,7 +138,11 @@ bool IntelMausi::init(OSDictionary *properties)
         promiscusMode = false;
         multicastMode = false;
         linkUp = false;
+        
+#ifndef __PRIVATE_SPI__
         stalled = false;
+#endif /* __PRIVATE_SPI__ */
+        
         forceReset = false;
         eeeMode = 0;
         chip = 0;
@@ -430,9 +434,13 @@ IOReturn IntelMausi::enable(IONetworkInterface *netif)
     
     txDescDoneCount = txDescDoneLast = 0;
     deadlockWarn = 0;
+
+#ifndef __PRIVATE_SPI__
     txQueue->setCapacity(kTransmitQueueCapacity);
-    isEnabled = true;
     stalled = false;
+#endif /* __PRIVATE_SPI__ */
+
+    isEnabled = true;
     forceReset = false;
     eeeMode = 0;
 
@@ -453,11 +461,17 @@ IOReturn IntelMausi::disable(IONetworkInterface *netif)
     if (!isEnabled)
         goto done;
     
+#ifdef __PRIVATE_SPI__
+    netif->stopOutputThread();
+    netif->flushOutputQueue();
+#else
     txQueue->stop();
     txQueue->flush();
     txQueue->setCapacity(0);
-    isEnabled = false;
     stalled = false;
+#endif /* __PRIVATE_SPI__ */
+
+    isEnabled = false;
     forceReset = false;
     eeeMode = 0;
 
@@ -490,6 +504,203 @@ IOReturn IntelMausi::disable(IONetworkInterface *netif)
 done:
     return result;
 }
+
+#ifdef __PRIVATE_SPI__
+
+IOReturn IntelMausi::outputStart(IONetworkInterface *interface, IOOptionBits options)
+{
+    IOPhysicalSegment txSegments[kMaxSegs];
+    struct e1000_data_desc *desc;
+    struct e1000_context_desc *contDesc;
+    mbuf_t m;
+    IOReturn result = kIOReturnNoResources;
+    UInt32 numDescs;
+    UInt32 cmd1;
+    UInt32 cmd2;
+    UInt32 len;
+    UInt32 mss;
+    UInt32 ipConfig;
+    UInt32 tcpConfig;
+    UInt32 word1;
+    UInt32 numSegs;
+    UInt32 lastSeg;
+    UInt32 index;
+    UInt32 offloadFlags;
+    UInt16 vlanTag;
+    UInt16 i;
+    UInt16 count;
+    
+    //DebugLog("outputPacket() ===>\n");
+    count = 0;
+    
+    if (!(isEnabled && linkUp) || forceReset) {
+        DebugLog("Ethernet [IntelMausi]: Interface down. Dropping packets.\n");
+        goto done;
+    }
+    while ((txNumFreeDesc >= (kMaxSegs + kTxSpareDescs)) && (interface->dequeueOutputPackets(1, &m, NULL, NULL, NULL) == kIOReturnSuccess)) {
+        numDescs = 0;
+        cmd1 = 0;
+        cmd2 = 0;
+        len = 0;
+        mss = 0;
+        ipConfig = 0;
+        tcpConfig = 0;
+        offloadFlags = 0;
+        
+        if (mbuf_get_tso_requested(m, &offloadFlags, &mss)) {
+            DebugLog("Ethernet [IntelMausi]: mbuf_get_tso_requested() failed. Dropping packet.\n");
+            freePacket(m);
+            continue;
+        }
+        /* First prepare the header and the command bits. */
+        if (offloadFlags & (MBUF_TSO_IPV4 | MBUF_TSO_IPV6)) {
+            numDescs = 1;
+            
+            if (offloadFlags & MBUF_TSO_IPV4) {
+                /* Correct the pseudo header checksum and extract the header size. */
+                prepareTSO4(m, &mss, &len);
+                
+                /* Prepare the context descriptor. */
+                ipConfig = ((kIPv4CSumEnd << 16) | (kIPv4CSumOffset << 8) | kIPv4CSumStart);
+                tcpConfig = ((kTCPv4CSumEnd << 16) | (kTCPv4CSumOffset << 8) | kTCPv4CSumStart);
+                len |= (E1000_TXD_CMD_DEXT | E1000_TXD_CMD_TSE | E1000_TXD_CMD_IP | E1000_TXD_CMD_TCP);
+                
+                //DebugLog("Ethernet [IntelMausi]: TSO4 mssHeaderLen=0x%08x, payload=0x%08x\n", mss, len);
+                
+                /* Setup the command bits for TSO over IPv4. */
+                cmd1 = (E1000_TXD_CMD_DEXT | E1000_TXD_CMD_TSE | E1000_TXD_DTYP_D);
+                cmd2 = (E1000_TXD_OPTS_TXSM | E1000_TXD_OPTS_IXSM);
+            } else {
+                /* Correct the pseudo header checksum and extract the header size. */
+                prepareTSO6(m, &mss, &len);
+                
+                /* Prepare the context descriptor. */
+                ipConfig = ((kIPv6CSumEnd << 16) | (kIPv6CSumOffset << 8) | kIPv6CSumStart);
+                tcpConfig = ((kTCPv6CSumEnd << 16) | (kTCPv6CSumOffset << 8) | kTCPv6CSumStart);
+                len |= (E1000_TXD_CMD_DEXT | E1000_TXD_CMD_TSE | E1000_TXD_CMD_TCP);
+                
+                /* Setup the command bits for TSO over IPv6. */
+                cmd1 = (E1000_TXD_CMD_DEXT | E1000_TXD_CMD_TSE | E1000_TXD_DTYP_D);
+                cmd2 = E1000_TXD_OPTS_TXSM;
+            }
+        } else {
+            mbuf_get_csum_requested(m, &offloadFlags, &mss);
+            
+            if (offloadFlags & (kChecksumUDPIPv6 | kChecksumTCPIPv6 | kChecksumIP | kChecksumUDP | kChecksumTCP)) {
+                numDescs = 1;
+                cmd1 = (E1000_TXD_CMD_DEXT | E1000_TXD_DTYP_D);
+                
+                if (offloadFlags & kChecksumTCP) {
+                    ipConfig = ((kIPv4CSumEnd << 16) | (kIPv4CSumOffset << 8) | kIPv4CSumStart);
+                    tcpConfig = ((kTCPv4CSumEnd << 16) | (kTCPv4CSumOffset << 8) | kTCPv4CSumStart);
+                    len = (E1000_TXD_CMD_DEXT | E1000_TXD_CMD_IP | E1000_TXD_CMD_TCP);
+                    mss = 0;
+                    
+                    cmd2 = (E1000_TXD_OPTS_TXSM | E1000_TXD_OPTS_IXSM);
+                } else if (offloadFlags & kChecksumUDP) {
+                    ipConfig = ((kIPv4CSumEnd << 16) | (kIPv4CSumOffset << 8) | kIPv4CSumStart);
+                    tcpConfig = ((kUDPv4CSumEnd << 16) | (kUDPv4CSumOffset << 8) | kUDPv4CSumStart);
+                    len = (E1000_TXD_CMD_DEXT | E1000_TXD_CMD_IP);
+                    mss = 0;
+                    
+                    cmd2 = (E1000_TXD_OPTS_TXSM | E1000_TXD_OPTS_IXSM);
+                } else if (offloadFlags & kChecksumIP) {
+                    ipConfig = ((kIPv4CSumEnd << 16) | (kIPv4CSumOffset << 8) | kIPv4CSumStart);
+                    tcpConfig = 0;
+                    mss = 0;
+                    len = (E1000_TXD_CMD_DEXT | E1000_TXD_CMD_IP);
+                    
+                    cmd2 = E1000_TXD_OPTS_IXSM;
+                } else if (offloadFlags & kChecksumTCPIPv6) {
+                    ipConfig = ((kIPv6CSumEnd << 16) | (kIPv6CSumOffset << 8) | kIPv6CSumStart);
+                    tcpConfig = ((kTCPv6CSumEnd << 16) | (kTCPv6CSumOffset << 8) | kTCPv6CSumStart);
+                    len = (E1000_TXD_CMD_DEXT | E1000_TXD_CMD_TCP);
+                    mss = 0;
+                    
+                    cmd2 = E1000_TXD_OPTS_TXSM;
+                } else if (offloadFlags & kChecksumUDPIPv6) {
+                    ipConfig = ((kIPv6CSumEnd << 16) | (kIPv6CSumOffset << 8) | kIPv6CSumStart);
+                    tcpConfig = ((kUDPv6CSumEnd << 16) | (kUDPv6CSumOffset << 8) | kUDPv6CSumStart);
+                    len = E1000_TXD_CMD_DEXT;
+                    mss = 0;
+                    
+                    cmd2 = E1000_TXD_OPTS_TXSM;
+                }
+            }
+        }
+        /* Next get the VLAN tag and command bit. */
+        if (!mbuf_get_vlan_tag(m, &vlanTag)) {
+            cmd1 |= E1000_TXD_CMD_VLE;
+            cmd2 |= (vlanTag << E1000_TX_FLAGS_VLAN_SHIFT);
+        }
+        /* Finally get the physical segments. */
+        numSegs = txMbufCursor->getPhysicalSegmentsWithCoalesce(m, &txSegments[0], kMaxSegs);
+        numDescs += numSegs;
+        
+        if (!numSegs) {
+            DebugLog("Ethernet [IntelMausi]: getPhysicalSegmentsWithCoalesce() failed. Dropping packet.\n");
+            etherStats->dot3TxExtraEntry.resourceErrors++;
+            freePacket(m);
+            continue;
+        }
+        OSAddAtomic(-numDescs, &txNumFreeDesc);
+        index = txNextDescIndex;
+        txNextDescIndex = (txNextDescIndex + numDescs) & kTxDescMask;
+        lastSeg = numSegs - 1;
+        
+        /* Setup the context descriptor for TSO or checksum offload. */
+        if (offloadFlags) {
+            contDesc = (struct e1000_context_desc *)&txDescArray[index];
+            
+            txBufArray[index].mbuf = NULL;
+            txBufArray[index].numDescs = 0;
+            
+            contDesc->lower_setup.ip_config = OSSwapHostToLittleInt32(ipConfig);
+            contDesc->upper_setup.tcp_config = OSSwapHostToLittleInt32(tcpConfig);
+            contDesc->cmd_and_length = OSSwapHostToLittleInt32(len);
+            contDesc->tcp_seg_setup.data = OSSwapHostToLittleInt32(mss);
+            
+            ++index &= kTxDescMask;
+        }
+        /* And finally fill in the data descriptors. */
+        for (i = 0; i < numSegs; i++) {
+            desc = &txDescArray[index];
+            word1 = (cmd1 | (txSegments[i].length & 0x000fffff));
+            
+            if (i == lastSeg) {
+                word1 |= (E1000_TXD_CMD_IDE | E1000_TXD_CMD_EOP | E1000_TXD_CMD_IFCS | E1000_TXD_CMD_RS);
+                txBufArray[index].mbuf = m;
+                txBufArray[index].numDescs = numDescs;
+            } else {
+                word1 |= E1000_TXD_CMD_IFCS;
+                txBufArray[index].mbuf = NULL;
+                txBufArray[index].numDescs = 0;
+            }
+            desc->buffer_addr = OSSwapHostToLittleInt64(txSegments[i].location);
+            desc->lower.data = OSSwapHostToLittleInt32(word1);
+            desc->upper.data = OSSwapHostToLittleInt32(cmd2);
+            
+            ++index &= kTxDescMask;
+        }
+        count += numDescs;
+        
+        if (count > 16) {
+            intelUpdateTxDescTail(txNextDescIndex);
+            count = 0;
+        }
+    }
+    if (count)
+        intelUpdateTxDescTail(txNextDescIndex);
+    
+    result = (txNumFreeDesc >= (kMaxSegs + kTxSpareDescs)) ? kIOReturnSuccess : kIOReturnNoResources;
+    
+    //DebugLog("outputPacket() <===\n");
+    
+done:
+    return result;
+}
+
+#else
 
 UInt32 IntelMausi::outputPacket(mbuf_t m, void *param)
 {
@@ -658,14 +869,7 @@ UInt32 IntelMausi::outputPacket(mbuf_t m, void *param)
         
         ++index &= kTxDescMask;
     }
-	/* flush updates before updating hardware */
-	OSSynchronizeIO();
-    txCleanBarrierIndex = txNextDescIndex;
-    
-    if (adapterData.flags2 & FLAG2_PCIM2PCI_ARBITER_WA)
-        intelUpdateTxDescTail(txNextDescIndex);
-    else
-        intelWriteMem32(E1000_TDT(0), txNextDescIndex);
+	intelUpdateTxDescTail(txNextDescIndex);
     
     result = kIOReturnOutputSuccess;
     
@@ -678,6 +882,8 @@ error:
     freePacket(m);
     goto done;
 }
+
+#endif /* __PRIVATE_SPI__ */
 
 void IntelMausi::getPacketBufferConstraints(IOPacketBufferConstraints *constraints) const
 {
@@ -719,6 +925,11 @@ bool IntelMausi::configureInterface(IONetworkInterface *interface)
 {
     char modelName[kNameLenght];
     IONetworkData *data;
+    
+#ifdef __PRIVATE_SPI__
+    IOReturn error;
+#endif /* __PRIVATE_SPI__ */
+
     bool result;
     
     DebugLog("configureInterface() ===>\n");
@@ -752,12 +963,23 @@ bool IntelMausi::configureInterface(IONetworkInterface *interface)
             goto done;
         }
     }
+    
+#ifdef __PRIVATE_SPI__
+    error = interface->configureOutputPullModel(384, 0, 0, IONetworkInterface::kOutputPacketSchedulingModelNormal);
+    
+    if (error != kIOReturnSuccess) {
+        IOLog("Ethernet [IntelMausi]: configureOutputPullModel() failed\n.");
+        result = false;
+        goto done;
+    }
+#endif /* __PRIVATE_SPI__ */
+
     snprintf(modelName, kNameLenght, "Intel %s PCI Express Gigabit Ethernet", deviceTable[chip].deviceName);
     setProperty("model", modelName);
     
-    DebugLog("configureInterface() <===\n");
-    
 done:
+    DebugLog("configureInterface() <===\n");
+
     return result;
 }
 
@@ -1131,11 +1353,17 @@ void IntelMausi::txInterrupt()
     //DebugLog("Ethernet [IntelMausi]: txInterrupt oldIndex=%u newIndex=%u\n", oldDirtyIndex, txDirtyDescIndex);
     
 done:
+#ifdef __PRIVATE_SPI__
+    if (txNumFreeDesc > kTxQueueWakeTreshhold)
+        netif->signalOutputThread();
+#else
     if (stalled && (txNumFreeDesc > kTxQueueWakeTreshhold)) {
         DebugLog("Ethernet [IntelMausi]: Restart stalled queue!\n");
         txQueue->service(IOBasicOutputQueue::kServiceAsync);
         stalled = false;
     }
+#endif /* __PRIVATE_SPI__ */
+
     etherStats->dot3TxExtraEntry.interrupts++;
 }
 
@@ -1454,7 +1682,11 @@ void IntelMausi::setLinkUp()
     linkUp = true;
     setLinkStatus(kIONetworkLinkValid | kIONetworkLinkActive, mediumTable[mediumIndex], mediumSpeed, NULL);
     
-    /* Restart txQueue, statistics updates and watchdog. */
+#ifdef __PRIVATE_SPI__
+    /* Start output thread, statistics update and watchdog. */
+    netif->startOutputThread();
+#else
+    /* Restart txQueue, statistics update and watchdog. */
     txQueue->start();
     
     if (stalled) {
@@ -1462,6 +1694,8 @@ void IntelMausi::setLinkUp()
         stalled = false;
         DebugLog("Ethernet [IntelMausi]: Restart stalled queue!\n");
     }
+#endif /* __PRIVATE_SPI__ */
+
     IOLog("Ethernet [IntelMausi]: Link up on en%u, %s, %s, %s%s\n", netif->getUnitNumber(), speedName, duplexName, flowName, eeeName);
 
     DebugLog("Ethernet [IntelMausi]: CTRL=0x%08x\n", intelReadMem32(E1000_CTRL));
@@ -1495,9 +1729,15 @@ void IntelMausi::setLinkDown()
 {
     deadlockWarn = 0;
     
+#ifdef __PRIVATE_SPI__
+    /* Stop output thread and flush output queue. */
+    netif->stopOutputThread();
+    netif->flushOutputQueue();
+#else
     /* Stop txQueue. */
     txQueue->stop();
     txQueue->flush();
+#endif /* __PRIVATE_SPI__ */
     
     /* Update link status. */
     linkUp = false;
@@ -1884,7 +2124,7 @@ bool IntelMausi::checkForDeadlock()
             IOLog("Ethernet [IntelMausi]: Tx stalled? Resetting chipset. txDirtyDescIndex=%u.\n", txDirtyIndex);
 
             for (i = 0; i < 30; i++) {
-                index = ((stalledIndex - 10 + i) & kTxDescMask);
+                index = ((stalledIndex - 20 + i) & kTxDescMask);
                 IOLog("Ethernet [IntelMausi]: desc[%u]: lower=0x%08x, upper=0x%08x, addr=0x%016llx, mbuf=0x%016llx.\n", index, txDescArray[index].lower.data, txDescArray[index].upper.data, txDescArray[index].buffer_addr, (UInt64)txBufArray[index].mbuf);
             }
             if (m) {
@@ -1929,6 +2169,8 @@ bool IntelMausi::checkForDeadlock()
 
 #pragma mark --- miscellaneous functions ---
 
+#if 1
+
 static inline void prepareTSO4(mbuf_t m, UInt32 *mssHeaderSize, UInt32 *payloadSize)
 {
     struct iphdr *ipHdr = (struct iphdr *)((UInt8 *)mbuf_data(m) + ETHER_HDR_LEN);
@@ -1950,7 +2192,33 @@ static inline void prepareTSO4(mbuf_t m, UInt32 *mssHeaderSize, UInt32 *payloadS
     *mssHeaderSize = ((*mssHeaderSize << 16) | (hlen << 8));
     *payloadSize = plen - hlen;
 }
-/*
+
+static inline void prepareTSO6(mbuf_t m, UInt32 *mssHeaderSize, UInt32 *payloadSize)
+{
+    struct ip6_hdr *ip6Hdr = (struct ip6_hdr *)((UInt8 *)mbuf_data(m) + ETHER_HDR_LEN);
+    struct tcphdr *tcpHdr = (struct tcphdr *)((UInt8 *)ip6Hdr + sizeof(struct ip6_hdr));
+    UInt16 *addr = (UInt16 *)&ip6Hdr->ip6_src;
+    UInt32 csum32 = 6;
+    UInt32 plen = (UInt32)mbuf_pkthdr_len(m);
+    UInt32 hlen = (tcpHdr->th_off << 2) + kMinL4HdrOffsetV6;
+    UInt32 i;
+    
+    ip6Hdr->ip6_ctlun.ip6_un1.ip6_un1_plen = 0;
+    
+    for (i = 0; i < 16; i++)
+        csum32 += ntohs(*addr++);
+    
+    csum32 += (csum32 >> 16);
+    tcpHdr->th_sum = htons((UInt16)csum32);
+    
+    //DebugLog("Ethernet [IntelMausi]: csum=0x%llx\n", csum64);
+    
+    *mssHeaderSize = ((*mssHeaderSize << 16) | (hlen << 8));
+    *payloadSize = plen - hlen;
+}
+
+#else
+
 static inline void prepareTSO4(mbuf_t m, UInt32 *mssHeaderSize, UInt32 *payloadSize)
 {
     struct iphdr *ipHdr = (struct iphdr *)((UInt8 *)mbuf_data(m) + ETHER_HDR_LEN);
@@ -1967,31 +2235,7 @@ static inline void prepareTSO4(mbuf_t m, UInt32 *mssHeaderSize, UInt32 *payloadS
     *mssHeaderSize = ((*mssHeaderSize << 16) | ((hlen + kMinL4HdrOffsetV4) << 8));
     *payloadSize = plen - hlen;
 }
-*/
-static inline void prepareTSO6(mbuf_t m, UInt32 *mssHeaderSize, UInt32 *payloadSize)
-{
-    struct ip6_hdr *ip6Hdr = (struct ip6_hdr *)((UInt8 *)mbuf_data(m) + ETHER_HDR_LEN);
-    struct tcphdr *tcpHdr = (struct tcphdr *)((UInt8 *)ip6Hdr + sizeof(struct ip6_hdr));
-    UInt16 *addr = (UInt16 *)&ip6Hdr->ip6_src;
-    UInt32 csum32 = 6;
-    UInt32 plen = (UInt32)mbuf_pkthdr_len(m);
-    UInt32 hlen = (tcpHdr->th_off << 2) + kMinL4HdrOffsetV6;
-    UInt32 i;
-    
-    ip6Hdr->ip6_ctlun.ip6_un1.ip6_un1_plen = 0;
 
-    for (i = 0; i < 16; i++)
-        csum32 += ntohs(*addr++);
-
-    csum32 += (csum32 >> 16);
-    tcpHdr->th_sum = htons((UInt16)csum32);
-    
-    //DebugLog("Ethernet [IntelMausi]: csum=0x%llx\n", csum64);
-
-    *mssHeaderSize = ((*mssHeaderSize << 16) | (hlen << 8));
-    *payloadSize = plen - hlen;
-}
-/*
 static inline void prepareTSO6(mbuf_t m, UInt32 *mssHeaderSize, UInt32 *payloadSize)
 {
     struct ip6_hdr *ip6Hdr = (struct ip6_hdr *)((UInt8 *)mbuf_data(m) + ETHER_HDR_LEN);
@@ -2009,4 +2253,6 @@ static inline void prepareTSO6(mbuf_t m, UInt32 *mssHeaderSize, UInt32 *payloadS
     *mssHeaderSize = ((*mssHeaderSize << 16) | ((hlen + kMinL4HdrOffsetV6) << 8));
     *payloadSize = plen - hlen;
 }
-*/
+
+#endif /* __PRIVATE_SPI__ */
+

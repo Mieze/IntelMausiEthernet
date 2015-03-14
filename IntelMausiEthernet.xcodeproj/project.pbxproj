@@ -35,6 +35,34 @@
 		D3CB5BC91A43993400A37FAA /* phy.h in Headers */ = {isa = PBXBuildFile; fileRef = D3CB5BB31A43993400A37FAA /* phy.h */; };
 		D3CB5BCB1A43993400A37FAA /* regs.h in Headers */ = {isa = PBXBuildFile; fileRef = D3CB5BB51A43993400A37FAA /* regs.h */; };
 		D3CB5BCD1A43A18B00A37FAA /* uapi-pci_regs.h in Headers */ = {isa = PBXBuildFile; fileRef = D3CB5BCC1A43A18B00A37FAA /* uapi-pci_regs.h */; };
+		D3F3189F1AB3B0E300DA9D9A /* IntelMausiEthernet.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D3CB5B821A4394A800A37FAA /* IntelMausiEthernet.cpp */; };
+		D3F318A01AB3B0E300DA9D9A /* mac.c in Sources */ = {isa = PBXBuildFile; fileRef = D3CB5BAA1A43993400A37FAA /* mac.c */; };
+		D3F318A11AB3B0E300DA9D9A /* ich8lan.c in Sources */ = {isa = PBXBuildFile; fileRef = D3CB5BA81A43993400A37FAA /* ich8lan.c */; };
+		D3F318A21AB3B0E300DA9D9A /* IntelMausiHardware.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D31D52061A566F4800DD1F17 /* IntelMausiHardware.cpp */; };
+		D3F318A31AB3B0E300DA9D9A /* phy.c in Sources */ = {isa = PBXBuildFile; fileRef = D3CB5BB21A43993400A37FAA /* phy.c */; };
+		D3F318A41AB3B0E300DA9D9A /* manage.c in Sources */ = {isa = PBXBuildFile; fileRef = D3CB5BAC1A43993400A37FAA /* manage.c */; };
+		D3F318A51AB3B0E300DA9D9A /* netdev.c in Sources */ = {isa = PBXBuildFile; fileRef = D3CB5BAE1A43993400A37FAA /* netdev.c */; };
+		D3F318A61AB3B0E300DA9D9A /* IntelMausiSetup.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D31D52021A566D8000DD1F17 /* IntelMausiSetup.cpp */; };
+		D3F318A71AB3B0E300DA9D9A /* nvm.c in Sources */ = {isa = PBXBuildFile; fileRef = D3CB5BAF1A43993400A37FAA /* nvm.c */; };
+		D3F318AA1AB3B0E300DA9D9A /* nvm.h in Headers */ = {isa = PBXBuildFile; fileRef = D3CB5BB01A43993400A37FAA /* nvm.h */; };
+		D3F318AB1AB3B0E300DA9D9A /* mii.h in Headers */ = {isa = PBXBuildFile; fileRef = D3CB5B911A43969400A37FAA /* mii.h */; };
+		D3F318AC1AB3B0E300DA9D9A /* phy.h in Headers */ = {isa = PBXBuildFile; fileRef = D3CB5BB31A43993400A37FAA /* phy.h */; };
+		D3F318AD1AB3B0E300DA9D9A /* hw.h in Headers */ = {isa = PBXBuildFile; fileRef = D3CB5BA71A43993400A37FAA /* hw.h */; };
+		D3F318AE1AB3B0E300DA9D9A /* manage.h in Headers */ = {isa = PBXBuildFile; fileRef = D3CB5BAD1A43993400A37FAA /* manage.h */; };
+		D3F318AF1AB3B0E300DA9D9A /* regs.h in Headers */ = {isa = PBXBuildFile; fileRef = D3CB5BB51A43993400A37FAA /* regs.h */; };
+		D3F318B01AB3B0E300DA9D9A /* defines.h in Headers */ = {isa = PBXBuildFile; fileRef = D3CB5BA41A43993300A37FAA /* defines.h */; };
+		D3F318B11AB3B0E300DA9D9A /* if_ether.h in Headers */ = {isa = PBXBuildFile; fileRef = D3CB5B8F1A43969400A37FAA /* if_ether.h */; };
+		D3F318B21AB3B0E300DA9D9A /* mdio.h in Headers */ = {isa = PBXBuildFile; fileRef = D3CB5B901A43969400A37FAA /* mdio.h */; };
+		D3F318B31AB3B0E300DA9D9A /* uapi-mii.h in Headers */ = {isa = PBXBuildFile; fileRef = D3CB5B941A43969400A37FAA /* uapi-mii.h */; };
+		D3F318B41AB3B0E300DA9D9A /* ethtool.h in Headers */ = {isa = PBXBuildFile; fileRef = D3CB5B8E1A43969400A37FAA /* ethtool.h */; };
+		D3F318B51AB3B0E300DA9D9A /* linux.h in Headers */ = {isa = PBXBuildFile; fileRef = D3CB5B8D1A43969400A37FAA /* linux.h */; };
+		D3F318B61AB3B0E300DA9D9A /* uapi-ip.h in Headers */ = {isa = PBXBuildFile; fileRef = D3CB5B951A43969400A37FAA /* uapi-ip.h */; };
+		D3F318B71AB3B0E300DA9D9A /* uapi-pci_regs.h in Headers */ = {isa = PBXBuildFile; fileRef = D3CB5BCC1A43A18B00A37FAA /* uapi-pci_regs.h */; };
+		D3F318B81AB3B0E300DA9D9A /* uapi-mdio.h in Headers */ = {isa = PBXBuildFile; fileRef = D3CB5B931A43969400A37FAA /* uapi-mdio.h */; };
+		D3F318B91AB3B0E300DA9D9A /* mac.h in Headers */ = {isa = PBXBuildFile; fileRef = D3CB5BAB1A43993400A37FAA /* mac.h */; };
+		D3F318BA1AB3B0E300DA9D9A /* uapi-ethtool.h in Headers */ = {isa = PBXBuildFile; fileRef = D3CB5B921A43969400A37FAA /* uapi-ethtool.h */; };
+		D3F318BB1AB3B0E300DA9D9A /* e1000.h in Headers */ = {isa = PBXBuildFile; fileRef = D3CB5BA51A43993300A37FAA /* e1000.h */; };
+		D3F318BC1AB3B0E300DA9D9A /* ich8lan.h in Headers */ = {isa = PBXBuildFile; fileRef = D3CB5BA91A43993400A37FAA /* ich8lan.h */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -74,10 +102,22 @@
 		D3CB5BB31A43993400A37FAA /* phy.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = phy.h; sourceTree = "<group>"; };
 		D3CB5BB51A43993400A37FAA /* regs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = regs.h; sourceTree = "<group>"; };
 		D3CB5BCC1A43A18B00A37FAA /* uapi-pci_regs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "uapi-pci_regs.h"; sourceTree = "<group>"; };
+		D3F318C21AB3B0E300DA9D9A /* IntelMausiEthernet.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IntelMausiEthernet.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		D3F318C41AB3B14E00DA9D9A /* IntelMausiEthernetV2-Prefix.pch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "IntelMausiEthernetV2-Prefix.pch"; sourceTree = "<group>"; };
+		D3F318C61AB3B57D00DA9D9A /* IONetworkController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IONetworkController.h; sourceTree = "<group>"; };
+		D3F318C71AB3B57D00DA9D9A /* IONetworkInterface.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IONetworkInterface.h; sourceTree = "<group>"; };
+		D3F318C81AB3B58A00DA9D9A /* APPLE_LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = APPLE_LICENSE; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		D3CB5B711A4394A800A37FAA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D3F318A81AB3B0E300DA9D9A /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -100,6 +140,7 @@
 			isa = PBXGroup;
 			children = (
 				D3CB5B761A4394A800A37FAA /* IntelMausiEthernet.kext */,
+				D3F318C21AB3B0E300DA9D9A /* IntelMausiEthernet.kext */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -127,9 +168,11 @@
 				D3CB5B821A4394A800A37FAA /* IntelMausiEthernet.cpp */,
 				D31D52021A566D8000DD1F17 /* IntelMausiSetup.cpp */,
 				D31D52061A566F4800DD1F17 /* IntelMausiHardware.cpp */,
+				D3F3189C1AB3B0CB00DA9D9A /* Apple Headers */,
 				D3CB5B9F1A43990200A37FAA /* Intel E1000e */,
 				D3CB5B8C1A43968000A37FAA /* Linux Compatibility */,
 				D3CB5B8A1A4395E400A37FAA /* gpl.txt */,
+				D3F318C81AB3B58A00DA9D9A /* APPLE_LICENSE */,
 				D3CB5B7C1A4394A800A37FAA /* Supporting Files */,
 			);
 			path = IntelMausiEthernet;
@@ -140,6 +183,7 @@
 			children = (
 				D3CB5B7D1A4394A800A37FAA /* IntelMausiEthernet-Info.plist */,
 				D3CB5B841A4394A800A37FAA /* IntelMausiEthernet-Prefix.pch */,
+				D3F318C41AB3B14E00DA9D9A /* IntelMausiEthernetV2-Prefix.pch */,
 			);
 			name = "Supporting Files";
 			sourceTree = "<group>";
@@ -185,6 +229,15 @@
 			name = "Intel E1000e";
 			sourceTree = "<group>";
 		};
+		D3F3189C1AB3B0CB00DA9D9A /* Apple Headers */ = {
+			isa = PBXGroup;
+			children = (
+				D3F318C61AB3B57D00DA9D9A /* IONetworkController.h */,
+				D3F318C71AB3B57D00DA9D9A /* IONetworkInterface.h */,
+			);
+			name = "Apple Headers";
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
@@ -214,6 +267,32 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D3F318A91AB3B0E300DA9D9A /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D3F318AA1AB3B0E300DA9D9A /* nvm.h in Headers */,
+				D3F318AB1AB3B0E300DA9D9A /* mii.h in Headers */,
+				D3F318AC1AB3B0E300DA9D9A /* phy.h in Headers */,
+				D3F318AD1AB3B0E300DA9D9A /* hw.h in Headers */,
+				D3F318AE1AB3B0E300DA9D9A /* manage.h in Headers */,
+				D3F318AF1AB3B0E300DA9D9A /* regs.h in Headers */,
+				D3F318B01AB3B0E300DA9D9A /* defines.h in Headers */,
+				D3F318B11AB3B0E300DA9D9A /* if_ether.h in Headers */,
+				D3F318B21AB3B0E300DA9D9A /* mdio.h in Headers */,
+				D3F318B31AB3B0E300DA9D9A /* uapi-mii.h in Headers */,
+				D3F318B41AB3B0E300DA9D9A /* ethtool.h in Headers */,
+				D3F318B51AB3B0E300DA9D9A /* linux.h in Headers */,
+				D3F318B61AB3B0E300DA9D9A /* uapi-ip.h in Headers */,
+				D3F318B71AB3B0E300DA9D9A /* uapi-pci_regs.h in Headers */,
+				D3F318B81AB3B0E300DA9D9A /* uapi-mdio.h in Headers */,
+				D3F318B91AB3B0E300DA9D9A /* mac.h in Headers */,
+				D3F318BA1AB3B0E300DA9D9A /* uapi-ethtool.h in Headers */,
+				D3F318BB1AB3B0E300DA9D9A /* e1000.h in Headers */,
+				D3F318BC1AB3B0E300DA9D9A /* ich8lan.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
@@ -234,6 +313,25 @@
 			name = IntelMausiEthernet;
 			productName = IntelMausiEthernet;
 			productReference = D3CB5B761A4394A800A37FAA /* IntelMausiEthernet.kext */;
+			productType = "com.apple.product-type.kernel-extension";
+		};
+		D3F3189D1AB3B0E300DA9D9A /* IntelMausiEthernetV2 */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D3F318BF1AB3B0E300DA9D9A /* Build configuration list for PBXNativeTarget "IntelMausiEthernetV2" */;
+			buildPhases = (
+				D3F3189E1AB3B0E300DA9D9A /* Sources */,
+				D3F318A81AB3B0E300DA9D9A /* Frameworks */,
+				D3F318A91AB3B0E300DA9D9A /* Headers */,
+				D3F318BD1AB3B0E300DA9D9A /* Resources */,
+				D3F318BE1AB3B0E300DA9D9A /* Rez */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = IntelMausiEthernetV2;
+			productName = IntelMausiEthernet;
+			productReference = D3F318C21AB3B0E300DA9D9A /* IntelMausiEthernet.kext */;
 			productType = "com.apple.product-type.kernel-extension";
 		};
 /* End PBXNativeTarget section */
@@ -258,6 +356,7 @@
 			projectRoot = "";
 			targets = (
 				D3CB5B751A4394A800A37FAA /* IntelMausiEthernet */,
+				D3F3189D1AB3B0E300DA9D9A /* IntelMausiEthernetV2 */,
 			);
 		};
 /* End PBXProject section */
@@ -270,10 +369,24 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D3F318BD1AB3B0E300DA9D9A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXRezBuildPhase section */
 		D3CB5B741A4394A800A37FAA /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D3F318BE1AB3B0E300DA9D9A /* Rez */ = {
 			isa = PBXRezBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -296,6 +409,22 @@
 				D3CB5BC41A43993400A37FAA /* netdev.c in Sources */,
 				D31D52041A566D8000DD1F17 /* IntelMausiSetup.cpp in Sources */,
 				D3CB5BC51A43993400A37FAA /* nvm.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D3F3189E1AB3B0E300DA9D9A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D3F3189F1AB3B0E300DA9D9A /* IntelMausiEthernet.cpp in Sources */,
+				D3F318A01AB3B0E300DA9D9A /* mac.c in Sources */,
+				D3F318A11AB3B0E300DA9D9A /* ich8lan.c in Sources */,
+				D3F318A21AB3B0E300DA9D9A /* IntelMausiHardware.cpp in Sources */,
+				D3F318A31AB3B0E300DA9D9A /* phy.c in Sources */,
+				D3F318A41AB3B0E300DA9D9A /* manage.c in Sources */,
+				D3F318A51AB3B0E300DA9D9A /* netdev.c in Sources */,
+				D3F318A61AB3B0E300DA9D9A /* IntelMausiSetup.cpp in Sources */,
+				D3F318A71AB3B0E300DA9D9A /* nvm.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -424,6 +553,52 @@
 			};
 			name = Release;
 		};
+		D3F318C01AB3B0E300DA9D9A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "compiler-default";
+				CLANG_CXX_LIBRARY = "compiler-default";
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_ARC = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = $MODULE_VERSION;
+				GCC_CW_ASM_SYNTAX = NO;
+				GCC_ENABLE_OBJC_EXCEPTIONS = NO;
+				GCC_LINK_WITH_DYNAMIC_LIBRARIES = NO;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "IntelMausiEthernet/IntelMausiEthernetV2-Prefix.pch";
+				INFOPLIST_FILE = "IntelMausiEthernet/IntelMausiEthernet-Info.plist";
+				MODULE_NAME = com.insanelymac.IntelMausiEthernet;
+				MODULE_VERSION = 2.0.0d1;
+				PRODUCT_NAME = IntelMausiEthernet;
+				SDKROOT = macosx10.9;
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Debug;
+		};
+		D3F318C11AB3B0E300DA9D9A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "compiler-default";
+				CLANG_CXX_LIBRARY = "compiler-default";
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_ARC = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = $MODULE_VERSION;
+				GCC_CW_ASM_SYNTAX = NO;
+				GCC_ENABLE_OBJC_EXCEPTIONS = NO;
+				GCC_LINK_WITH_DYNAMIC_LIBRARIES = NO;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "IntelMausiEthernet/IntelMausiEthernetV2-Prefix.pch";
+				INFOPLIST_FILE = "IntelMausiEthernet/IntelMausiEthernet-Info.plist";
+				MODULE_NAME = com.insanelymac.IntelMausiEthernet;
+				MODULE_VERSION = 2.0.0d1;
+				PRODUCT_NAME = IntelMausiEthernet;
+				SDKROOT = macosx10.9;
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -441,6 +616,15 @@
 			buildConfigurations = (
 				D3CB5B881A4394A800A37FAA /* Debug */,
 				D3CB5B891A4394A800A37FAA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D3F318BF1AB3B0E300DA9D9A /* Build configuration list for PBXNativeTarget "IntelMausiEthernetV2" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D3F318C01AB3B0E300DA9D9A /* Debug */,
+				D3F318C11AB3B0E300DA9D9A /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
