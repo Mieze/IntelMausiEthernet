@@ -355,6 +355,10 @@ void IntelMausi::intelConfigureTx(struct e1000_adapter *adapter)
     
     txdctl = intelReadMem32(E1000_TXDCTL(0));
 
+    if (chipType == board_pch_lpt) {
+        txdctl = 0;
+        intelWriteMem32(E1000_TXDCTL(0), txdctl);
+    }
     /* erratum work around: set txdctl the same for both queues */
     intelWriteMem32(E1000_TXDCTL(1), txdctl);
 

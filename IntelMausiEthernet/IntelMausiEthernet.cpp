@@ -530,7 +530,7 @@ IOReturn IntelMausi::outputStart(IONetworkInterface *interface, IOOptionBits opt
     UInt16 i;
     UInt16 count;
     
-    //DebugLog("outputPacket() ===>\n");
+    //DebugLog("outputStart() ===>\n");
     count = 0;
     
     if (!(isEnabled && linkUp) || forceReset) {
@@ -682,19 +682,14 @@ IOReturn IntelMausi::outputStart(IONetworkInterface *interface, IOOptionBits opt
             
             ++index &= kTxDescMask;
         }
-        count += numDescs;
-        
-        if (count > 16) {
-            intelUpdateTxDescTail(txNextDescIndex);
-            count = 0;
-        }
+        count++;
     }
     if (count)
         intelUpdateTxDescTail(txNextDescIndex);
     
     result = (txNumFreeDesc >= (kMaxSegs + kTxSpareDescs)) ? kIOReturnSuccess : kIOReturnNoResources;
     
-    //DebugLog("outputPacket() <===\n");
+    //DebugLog("outputStart() <===\n");
     
 done:
     return result;
@@ -1363,7 +1358,7 @@ done:
         stalled = false;
     }
 #endif /* __PRIVATE_SPI__ */
-
+    
     etherStats->dot3TxExtraEntry.interrupts++;
 }
 
@@ -2103,9 +2098,6 @@ bool IntelMausi::checkForDeadlock()
 {
     bool deadlock = false;
     
-    /* Force detection of hung controller every watchdog period */
-    adapterData.detect_tx_hung = true;
-    
     if (forceReset) {
         etherStats->dot3TxExtraEntry.resets++;
         intelRestart();
@@ -2121,7 +2113,7 @@ bool IntelMausi::checkForDeadlock()
             UInt16 stalledIndex = txDirtyIndex;
             UInt8 data;
             
-            IOLog("Ethernet [IntelMausi]: Tx stalled? Resetting chipset. txDirtyDescIndex=%u.\n", txDirtyIndex);
+            IOLog("Ethernet [IntelMausi]: Tx stalled? Resetting chipset. txDirtyDescIndex=%u, STATUS=0x%08x, TCTL=0x%08x.\n", txDirtyIndex, intelReadMem32(E1000_STATUS), intelReadMem32(E1000_TCTL));
 
             for (i = 0; i < 30; i++) {
                 index = ((stalledIndex - 20 + i) & kTxDescMask);
@@ -2254,5 +2246,5 @@ static inline void prepareTSO6(mbuf_t m, UInt32 *mssHeaderSize, UInt32 *payloadS
     *payloadSize = plen - hlen;
 }
 
-#endif /* __PRIVATE_SPI__ */
+#endif
 

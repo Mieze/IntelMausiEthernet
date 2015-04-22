@@ -523,7 +523,7 @@
 				GCC_PREFIX_HEADER = "IntelMausiEthernet/IntelMausiEthernet-Prefix.pch";
 				INFOPLIST_FILE = "IntelMausiEthernet/IntelMausiEthernet-Info.plist";
 				MODULE_NAME = com.insanelymac.IntelMausiEthernet;
-				MODULE_VERSION = 1.0.0d6;
+				MODULE_VERSION = 1.0.0;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx10.9;
 				WRAPPER_EXTENSION = kext;
@@ -546,7 +546,7 @@
 				GCC_PREFIX_HEADER = "IntelMausiEthernet/IntelMausiEthernet-Prefix.pch";
 				INFOPLIST_FILE = "IntelMausiEthernet/IntelMausiEthernet-Info.plist";
 				MODULE_NAME = com.insanelymac.IntelMausiEthernet;
-				MODULE_VERSION = 1.0.0d6;
+				MODULE_VERSION = 1.0.0;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx10.9;
 				WRAPPER_EXTENSION = kext;
@@ -569,7 +569,7 @@
 				GCC_PREFIX_HEADER = "IntelMausiEthernet/IntelMausiEthernetV2-Prefix.pch";
 				INFOPLIST_FILE = "IntelMausiEthernet/IntelMausiEthernet-Info.plist";
 				MODULE_NAME = com.insanelymac.IntelMausiEthernet;
-				MODULE_VERSION = 2.0.0d1;
+				MODULE_VERSION = 2.0.0;
 				PRODUCT_NAME = IntelMausiEthernet;
 				SDKROOT = macosx10.9;
 				WRAPPER_EXTENSION = kext;
@@ -592,7 +592,7 @@
 				GCC_PREFIX_HEADER = "IntelMausiEthernet/IntelMausiEthernetV2-Prefix.pch";
 				INFOPLIST_FILE = "IntelMausiEthernet/IntelMausiEthernet-Info.plist";
 				MODULE_NAME = com.insanelymac.IntelMausiEthernet;
-				MODULE_VERSION = 2.0.0d1;
+				MODULE_VERSION = 2.0.0;
 				PRODUCT_NAME = IntelMausiEthernet;
 				SDKROOT = macosx10.9;
 				WRAPPER_EXTENSION = kext;
