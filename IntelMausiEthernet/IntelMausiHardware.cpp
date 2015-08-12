@@ -49,7 +49,7 @@ bool IntelMausi::initPCIConfigSpace(IOPCIDevice *provider)
     /* Enable the device. */
     intelEnablePCIDevice(provider);
     
-    baseMap = provider->mapDeviceMemoryWithRegister(kIOPCIConfigBaseAddress0);
+    baseMap = provider->mapDeviceMemoryWithRegister(kIOPCIConfigBaseAddress0, kIOMapInhibitCache);
     
     if (!baseMap) {
         IOLog("Ethernet [IntelMausi]: region #0 not an MMIO resource, aborting.\n");
@@ -59,7 +59,7 @@ bool IntelMausi::initPCIConfigSpace(IOPCIDevice *provider)
     adapterData.hw.hw_addr = (u8 __iomem *)baseAddr;
     
     if (adapterData.flags & FLAG_HAS_FLASH) {
-        flashMap = provider->mapDeviceMemoryWithRegister(kIOPCIConfigBaseAddress1);
+        flashMap = provider->mapDeviceMemoryWithRegister(kIOPCIConfigBaseAddress1, kIOMapInhibitCache);
         
         if (!flashMap) {
             IOLog("Ethernet [IntelMausi]: region #1 not an MMIO resource, aborting.\n");
@@ -355,7 +355,7 @@ void IntelMausi::intelConfigureTx(struct e1000_adapter *adapter)
     
     txdctl = intelReadMem32(E1000_TXDCTL(0));
 
-    if (chipType == board_pch_lpt) {
+    if ((chipType == board_pch_lpt) || (chipType == board_pch2lan)) {
         txdctl = 0;
         intelWriteMem32(E1000_TXDCTL(0), txdctl);
     }
