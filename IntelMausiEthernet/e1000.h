@@ -273,11 +273,12 @@ struct e1000_adapter {
     
 	u32 txd_cmd;
 
-#endif /* DISABLED_CODE */
-
 	bool detect_tx_hung;
 	bool tx_hang_recheck;
-	u8 tx_timeout_factor;
+
+#endif /* DISABLED_CODE */
+
+    u8 tx_timeout_factor;
 
 	u32 tx_int_delay;
 	u32 tx_abs_int_delay;

@@ -109,7 +109,7 @@ enum {
 #define kTxQueueWakeTreshhold (kNumTxDesc / 4)
 
 /* transmitter deadlock treshhold in seconds. */
-#define kTxDeadlockTreshhold 5
+#define kTxDeadlockTreshhold 2
 
 /* IP specific stuff */
 #define kMinL4HdrOffsetV4 34
@@ -140,6 +140,7 @@ enum {
 #define kUDPv6CSumEnd       0
 
 #define SPEED_MODE_BIT (1 << 21)
+#define E1000_TARC_QUEUE_EN   0x00000400
 
 #define E1000_RXD_STAT_IPPCS        0x40            /* IP xsum calculated */
 
@@ -362,6 +363,7 @@ private:
 
     void intelRestart();
     bool intelCheckLink(struct e1000_adapter *adapter);
+    void intelFlushDescriptors();
     void intelPhyReadStatus(struct e1000_adapter *adapter);
     void intelInitPhyWakeup(UInt32 wufc);
     void intelFlushLPIC();

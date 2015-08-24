@@ -515,8 +515,9 @@ IOReturn IntelMausi::outputStart(IONetworkInterface *interface, IOOptionBits opt
     mbuf_t m;
     IOReturn result = kIOReturnNoResources;
     UInt32 numDescs;
-    UInt32 cmd1;
-    UInt32 cmd2;
+    UInt32 cmd;
+    UInt32 opts;
+    UInt32 word2;
     UInt32 len;
     UInt32 mss;
     UInt32 ipConfig;
@@ -539,8 +540,9 @@ IOReturn IntelMausi::outputStart(IONetworkInterface *interface, IOOptionBits opt
     }
     while ((txNumFreeDesc >= (kMaxSegs + kTxSpareDescs)) && (interface->dequeueOutputPackets(1, &m, NULL, NULL, NULL) == kIOReturnSuccess)) {
         numDescs = 0;
-        cmd1 = 0;
-        cmd2 = 0;
+        cmd = 0;
+        opts = (E1000_TXD_CMD_IDE | E1000_TXD_CMD_EOP | E1000_TXD_CMD_IFCS | E1000_TXD_CMD_RS);
+        word2 = 0;
         len = 0;
         mss = 0;
         ipConfig = 0;
@@ -555,6 +557,7 @@ IOReturn IntelMausi::outputStart(IONetworkInterface *interface, IOOptionBits opt
         /* First prepare the header and the command bits. */
         if (offloadFlags & (MBUF_TSO_IPV4 | MBUF_TSO_IPV6)) {
             numDescs = 1;
+            opts = E1000_TXD_CMD_IFCS;
             
             if (offloadFlags & MBUF_TSO_IPV4) {
                 /* Correct the pseudo header checksum and extract the header size. */
@@ -568,8 +571,8 @@ IOReturn IntelMausi::outputStart(IONetworkInterface *interface, IOOptionBits opt
                 //DebugLog("Ethernet [IntelMausi]: TSO4 mssHeaderLen=0x%08x, payload=0x%08x\n", mss, len);
                 
                 /* Setup the command bits for TSO over IPv4. */
-                cmd1 = (E1000_TXD_CMD_DEXT | E1000_TXD_CMD_TSE | E1000_TXD_DTYP_D);
-                cmd2 = (E1000_TXD_OPTS_TXSM | E1000_TXD_OPTS_IXSM);
+                cmd = (E1000_TXD_CMD_DEXT | E1000_TXD_CMD_TSE | E1000_TXD_DTYP_D);
+                word2 = (E1000_TXD_OPTS_TXSM | E1000_TXD_OPTS_IXSM);
             } else {
                 /* Correct the pseudo header checksum and extract the header size. */
                 prepareTSO6(m, &mss, &len);
@@ -580,15 +583,15 @@ IOReturn IntelMausi::outputStart(IONetworkInterface *interface, IOOptionBits opt
                 len |= (E1000_TXD_CMD_DEXT | E1000_TXD_CMD_TSE | E1000_TXD_CMD_TCP);
                 
                 /* Setup the command bits for TSO over IPv6. */
-                cmd1 = (E1000_TXD_CMD_DEXT | E1000_TXD_CMD_TSE | E1000_TXD_DTYP_D);
-                cmd2 = E1000_TXD_OPTS_TXSM;
+                cmd = (E1000_TXD_CMD_DEXT | E1000_TXD_CMD_TSE | E1000_TXD_DTYP_D);
+                word2 = E1000_TXD_OPTS_TXSM;
             }
         } else {
             mbuf_get_csum_requested(m, &offloadFlags, &mss);
             
             if (offloadFlags & (kChecksumUDPIPv6 | kChecksumTCPIPv6 | kChecksumIP | kChecksumUDP | kChecksumTCP)) {
                 numDescs = 1;
-                cmd1 = (E1000_TXD_CMD_DEXT | E1000_TXD_DTYP_D);
+                cmd = (E1000_TXD_CMD_DEXT | E1000_TXD_DTYP_D);
                 
                 if (offloadFlags & kChecksumTCP) {
                     ipConfig = ((kIPv4CSumEnd << 16) | (kIPv4CSumOffset << 8) | kIPv4CSumStart);
@@ -596,42 +599,42 @@ IOReturn IntelMausi::outputStart(IONetworkInterface *interface, IOOptionBits opt
                     len = (E1000_TXD_CMD_DEXT | E1000_TXD_CMD_IP | E1000_TXD_CMD_TCP);
                     mss = 0;
                     
-                    cmd2 = (E1000_TXD_OPTS_TXSM | E1000_TXD_OPTS_IXSM);
+                    word2 = (E1000_TXD_OPTS_TXSM | E1000_TXD_OPTS_IXSM);
                 } else if (offloadFlags & kChecksumUDP) {
                     ipConfig = ((kIPv4CSumEnd << 16) | (kIPv4CSumOffset << 8) | kIPv4CSumStart);
                     tcpConfig = ((kUDPv4CSumEnd << 16) | (kUDPv4CSumOffset << 8) | kUDPv4CSumStart);
                     len = (E1000_TXD_CMD_DEXT | E1000_TXD_CMD_IP);
                     mss = 0;
                     
-                    cmd2 = (E1000_TXD_OPTS_TXSM | E1000_TXD_OPTS_IXSM);
+                    word2 = (E1000_TXD_OPTS_TXSM | E1000_TXD_OPTS_IXSM);
                 } else if (offloadFlags & kChecksumIP) {
                     ipConfig = ((kIPv4CSumEnd << 16) | (kIPv4CSumOffset << 8) | kIPv4CSumStart);
                     tcpConfig = 0;
                     mss = 0;
                     len = (E1000_TXD_CMD_DEXT | E1000_TXD_CMD_IP);
                     
-                    cmd2 = E1000_TXD_OPTS_IXSM;
+                    word2 = E1000_TXD_OPTS_IXSM;
                 } else if (offloadFlags & kChecksumTCPIPv6) {
                     ipConfig = ((kIPv6CSumEnd << 16) | (kIPv6CSumOffset << 8) | kIPv6CSumStart);
                     tcpConfig = ((kTCPv6CSumEnd << 16) | (kTCPv6CSumOffset << 8) | kTCPv6CSumStart);
                     len = (E1000_TXD_CMD_DEXT | E1000_TXD_CMD_TCP);
                     mss = 0;
                     
-                    cmd2 = E1000_TXD_OPTS_TXSM;
+                    word2 = E1000_TXD_OPTS_TXSM;
                 } else if (offloadFlags & kChecksumUDPIPv6) {
                     ipConfig = ((kIPv6CSumEnd << 16) | (kIPv6CSumOffset << 8) | kIPv6CSumStart);
                     tcpConfig = ((kUDPv6CSumEnd << 16) | (kUDPv6CSumOffset << 8) | kUDPv6CSumStart);
                     len = E1000_TXD_CMD_DEXT;
                     mss = 0;
                     
-                    cmd2 = E1000_TXD_OPTS_TXSM;
+                    word2 = E1000_TXD_OPTS_TXSM;
                 }
             }
         }
         /* Next get the VLAN tag and command bit. */
         if (!mbuf_get_vlan_tag(m, &vlanTag)) {
-            cmd1 |= E1000_TXD_CMD_VLE;
-            cmd2 |= (vlanTag << E1000_TX_FLAGS_VLAN_SHIFT);
+            opts |= E1000_TXD_CMD_VLE;
+            word2 |= (vlanTag << E1000_TX_FLAGS_VLAN_SHIFT);
         }
         /* Finally get the physical segments. */
         numSegs = txMbufCursor->getPhysicalSegmentsWithCoalesce(m, &txSegments[0], kMaxSegs);
@@ -655,6 +658,10 @@ IOReturn IntelMausi::outputStart(IONetworkInterface *interface, IOOptionBits opt
             txBufArray[index].mbuf = NULL;
             txBufArray[index].numDescs = 0;
             
+#ifdef DEBUG
+            txBufArray[index].pad = 0;
+#endif
+
             contDesc->lower_setup.ip_config = OSSwapHostToLittleInt32(ipConfig);
             contDesc->upper_setup.tcp_config = OSSwapHostToLittleInt32(tcpConfig);
             contDesc->cmd_and_length = OSSwapHostToLittleInt32(len);
@@ -663,24 +670,58 @@ IOReturn IntelMausi::outputStart(IONetworkInterface *interface, IOOptionBits opt
             ++index &= kTxDescMask;
         }
         /* And finally fill in the data descriptors. */
-        for (i = 0; i < numSegs; i++) {
-            desc = &txDescArray[index];
-            word1 = (cmd1 | (txSegments[i].length & 0x000fffff));
-            
-            if (i == lastSeg) {
-                word1 |= (E1000_TXD_CMD_IDE | E1000_TXD_CMD_EOP | E1000_TXD_CMD_IFCS | E1000_TXD_CMD_RS);
-                txBufArray[index].mbuf = m;
-                txBufArray[index].numDescs = numDescs;
-            } else {
-                word1 |= E1000_TXD_CMD_IFCS;
-                txBufArray[index].mbuf = NULL;
-                txBufArray[index].numDescs = 0;
+        if (offloadFlags & (MBUF_TSO_IPV4 | MBUF_TSO_IPV6)) {
+            for (i = 0; i < numSegs; i++) {
+                desc = &txDescArray[index];
+                word1 = (cmd | (txSegments[i].length & 0x000fffff));
+                
+                if (i == 0) {
+                    word1 |= opts;
+                    txBufArray[index].mbuf = NULL;
+                    txBufArray[index].numDescs = 0;
+                } else if (i == lastSeg) {
+                    word1 |= (E1000_TXD_CMD_IDE | E1000_TXD_CMD_EOP | E1000_TXD_CMD_RS);
+                    txBufArray[index].mbuf = m;
+                    txBufArray[index].numDescs = numDescs;
+                } else {
+                    txBufArray[index].mbuf = NULL;
+                    txBufArray[index].numDescs = 0;
+                }
+                
+#ifdef DEBUG
+                txBufArray[index].pad = (UInt32)txSegments[i].length;
+#endif
+                
+                desc->buffer_addr = OSSwapHostToLittleInt64(txSegments[i].location);
+                desc->lower.data = OSSwapHostToLittleInt32(word1);
+                desc->upper.data = OSSwapHostToLittleInt32(word2);
+                
+                ++index &= kTxDescMask;
             }
-            desc->buffer_addr = OSSwapHostToLittleInt64(txSegments[i].location);
-            desc->lower.data = OSSwapHostToLittleInt32(word1);
-            desc->upper.data = OSSwapHostToLittleInt32(cmd2);
-            
-            ++index &= kTxDescMask;
+        } else {
+            for (i = 0; i < numSegs; i++) {
+                desc = &txDescArray[index];
+                word1 = (cmd | (txSegments[i].length & 0x000fffff));
+                
+                if (i == lastSeg) {
+                    word1 |= opts;
+                    txBufArray[index].mbuf = m;
+                    txBufArray[index].numDescs = numDescs;
+                } else {
+                    txBufArray[index].mbuf = NULL;
+                    txBufArray[index].numDescs = 0;
+                }
+                
+#ifdef DEBUG
+                txBufArray[index].pad = (UInt32)txSegments[i].length;
+#endif
+                
+                desc->buffer_addr = OSSwapHostToLittleInt64(txSegments[i].location);
+                desc->lower.data = OSSwapHostToLittleInt32(word1);
+                desc->upper.data = OSSwapHostToLittleInt32(word2);
+                
+                ++index &= kTxDescMask;
+            }
         }
         count++;
     }
@@ -704,8 +745,9 @@ UInt32 IntelMausi::outputPacket(mbuf_t m, void *param)
     struct e1000_context_desc *contDesc;
     UInt32 result = kIOReturnOutputDropped;
     UInt32 numDescs = 0;
-    UInt32 cmd1 = 0;
-    UInt32 cmd2 = 0;
+    UInt32 cmd = 0;
+    UInt32 opts = (E1000_TXD_CMD_IDE | E1000_TXD_CMD_EOP | E1000_TXD_CMD_IFCS | E1000_TXD_CMD_RS);
+    UInt32 word2 = 0;
     UInt32 len = 0;
     UInt32 mss = 0;
     UInt32 ipConfig = 0;
@@ -731,6 +773,7 @@ UInt32 IntelMausi::outputPacket(mbuf_t m, void *param)
     /* First prepare the header and the command bits. */
     if (offloadFlags & (MBUF_TSO_IPV4 | MBUF_TSO_IPV6)) {
         numDescs = 1;
+        opts = E1000_TXD_CMD_IFCS;
         
         if (offloadFlags & MBUF_TSO_IPV4) {
             /* Correct the pseudo header checksum and extract the header size. */
@@ -744,8 +787,8 @@ UInt32 IntelMausi::outputPacket(mbuf_t m, void *param)
             //DebugLog("Ethernet [IntelMausi]: TSO4 mssHeaderLen=0x%08x, payload=0x%08x\n", mss, len);
 
             /* Setup the command bits for TSO over IPv4. */
-            cmd1 = (E1000_TXD_CMD_DEXT | E1000_TXD_CMD_TSE | E1000_TXD_DTYP_D);
-            cmd2 = (E1000_TXD_OPTS_TXSM | E1000_TXD_OPTS_IXSM);
+            cmd = (E1000_TXD_CMD_DEXT | E1000_TXD_CMD_TSE | E1000_TXD_DTYP_D);
+            word2 = (E1000_TXD_OPTS_TXSM | E1000_TXD_OPTS_IXSM);
         } else {
             /* Correct the pseudo header checksum and extract the header size. */
             prepareTSO6(m, &mss, &len);
@@ -756,15 +799,15 @@ UInt32 IntelMausi::outputPacket(mbuf_t m, void *param)
             len |= (E1000_TXD_CMD_DEXT | E1000_TXD_CMD_TSE | E1000_TXD_CMD_TCP);
             
             /* Setup the command bits for TSO over IPv6. */
-            cmd1 = (E1000_TXD_CMD_DEXT | E1000_TXD_CMD_TSE | E1000_TXD_DTYP_D);
-            cmd2 = E1000_TXD_OPTS_TXSM;
+            cmd = (E1000_TXD_CMD_DEXT | E1000_TXD_CMD_TSE | E1000_TXD_DTYP_D);
+            word2 = E1000_TXD_OPTS_TXSM;
         }
     } else {
         mbuf_get_csum_requested(m, &offloadFlags, &mss);
         
         if (offloadFlags & (kChecksumUDPIPv6 | kChecksumTCPIPv6 | kChecksumIP | kChecksumUDP | kChecksumTCP)) {
             numDescs = 1;
-            cmd1 = (E1000_TXD_CMD_DEXT | E1000_TXD_DTYP_D);
+            cmd = (E1000_TXD_CMD_DEXT | E1000_TXD_DTYP_D);
 
             if (offloadFlags & kChecksumTCP) {
                 ipConfig = ((kIPv4CSumEnd << 16) | (kIPv4CSumOffset << 8) | kIPv4CSumStart);
@@ -772,42 +815,42 @@ UInt32 IntelMausi::outputPacket(mbuf_t m, void *param)
                 len = (E1000_TXD_CMD_DEXT | E1000_TXD_CMD_IP | E1000_TXD_CMD_TCP);
                 mss = 0;
                 
-                cmd2 = (E1000_TXD_OPTS_TXSM | E1000_TXD_OPTS_IXSM);
+                word2 = (E1000_TXD_OPTS_TXSM | E1000_TXD_OPTS_IXSM);
             } else if (offloadFlags & kChecksumUDP) {
                 ipConfig = ((kIPv4CSumEnd << 16) | (kIPv4CSumOffset << 8) | kIPv4CSumStart);
                 tcpConfig = ((kUDPv4CSumEnd << 16) | (kUDPv4CSumOffset << 8) | kUDPv4CSumStart);
                 len = (E1000_TXD_CMD_DEXT | E1000_TXD_CMD_IP);
                 mss = 0;
 
-                cmd2 = (E1000_TXD_OPTS_TXSM | E1000_TXD_OPTS_IXSM);
+                word2 = (E1000_TXD_OPTS_TXSM | E1000_TXD_OPTS_IXSM);
             } else if (offloadFlags & kChecksumIP) {
                 ipConfig = ((kIPv4CSumEnd << 16) | (kIPv4CSumOffset << 8) | kIPv4CSumStart);
                 tcpConfig = 0;
                 mss = 0;
                 len = (E1000_TXD_CMD_DEXT | E1000_TXD_CMD_IP);
 
-                cmd2 = E1000_TXD_OPTS_IXSM;
+                word2 = E1000_TXD_OPTS_IXSM;
             } else if (offloadFlags & kChecksumTCPIPv6) {
                 ipConfig = ((kIPv6CSumEnd << 16) | (kIPv6CSumOffset << 8) | kIPv6CSumStart);
                 tcpConfig = ((kTCPv6CSumEnd << 16) | (kTCPv6CSumOffset << 8) | kTCPv6CSumStart);
                 len = (E1000_TXD_CMD_DEXT | E1000_TXD_CMD_TCP);
                 mss = 0;
                 
-                cmd2 = E1000_TXD_OPTS_TXSM;
+                word2 = E1000_TXD_OPTS_TXSM;
             } else if (offloadFlags & kChecksumUDPIPv6) {
                 ipConfig = ((kIPv6CSumEnd << 16) | (kIPv6CSumOffset << 8) | kIPv6CSumStart);
                 tcpConfig = ((kUDPv6CSumEnd << 16) | (kUDPv6CSumOffset << 8) | kUDPv6CSumStart);
                 len = E1000_TXD_CMD_DEXT;
                 mss = 0;
                 
-                cmd2 = E1000_TXD_OPTS_TXSM;
+                word2 = E1000_TXD_OPTS_TXSM;
             }
         }
     }
     /* Next get the VLAN tag and command bit. */
     if (!mbuf_get_vlan_tag(m, &vlanTag)) {
-        cmd1 |= E1000_TXD_CMD_VLE;
-        cmd2 |= (vlanTag << E1000_TX_FLAGS_VLAN_SHIFT);
+        opts |= E1000_TXD_CMD_VLE;
+        word2 |= (vlanTag << E1000_TX_FLAGS_VLAN_SHIFT);
     }
     /* Finally get the physical segments. */
     numSegs = txMbufCursor->getPhysicalSegmentsWithCoalesce(m, &txSegments[0], kMaxSegs);
@@ -837,32 +880,70 @@ UInt32 IntelMausi::outputPacket(mbuf_t m, void *param)
         txBufArray[index].mbuf = NULL;
         txBufArray[index].numDescs = 0;
         
+#ifdef DEBUG
+        txBufArray[index].pad = 0;
+#endif
+        
         contDesc->lower_setup.ip_config = OSSwapHostToLittleInt32(ipConfig);
         contDesc->upper_setup.tcp_config = OSSwapHostToLittleInt32(tcpConfig);
         contDesc->cmd_and_length = OSSwapHostToLittleInt32(len);
         contDesc->tcp_seg_setup.data = OSSwapHostToLittleInt32(mss);
-        
+
         ++index &= kTxDescMask;
     }
     /* And finally fill in the data descriptors. */
-    for (i = 0; i < numSegs; i++) {
-        desc = &txDescArray[index];
-        word1 = (cmd1 | (txSegments[i].length & 0x000fffff));
-
-        if (i == lastSeg) {
-            word1 |= (E1000_TXD_CMD_IDE | E1000_TXD_CMD_EOP | E1000_TXD_CMD_IFCS | E1000_TXD_CMD_RS);
-            txBufArray[index].mbuf = m;
-            txBufArray[index].numDescs = numDescs;
-        } else {
-            word1 |= E1000_TXD_CMD_IFCS;
-            txBufArray[index].mbuf = NULL;
-            txBufArray[index].numDescs = 0;
+    if (offloadFlags & (MBUF_TSO_IPV4 | MBUF_TSO_IPV6)) {
+        for (i = 0; i < numSegs; i++) {
+            desc = &txDescArray[index];
+            word1 = (cmd | (txSegments[i].length & 0x000fffff));
+            
+            if (i == 0) {
+                word1 |= opts;
+                txBufArray[index].mbuf = NULL;
+                txBufArray[index].numDescs = 0;
+            } else if (i == lastSeg) {
+                word1 |= (E1000_TXD_CMD_IDE | E1000_TXD_CMD_EOP | E1000_TXD_CMD_RS);
+                txBufArray[index].mbuf = m;
+                txBufArray[index].numDescs = numDescs;
+            } else {
+                txBufArray[index].mbuf = NULL;
+                txBufArray[index].numDescs = 0;
+            }
+            
+#ifdef DEBUG
+            txBufArray[index].pad = (UInt32)txSegments[i].length;
+#endif
+            
+            desc->buffer_addr = OSSwapHostToLittleInt64(txSegments[i].location);
+            desc->lower.data = OSSwapHostToLittleInt32(word1);
+            desc->upper.data = OSSwapHostToLittleInt32(word2);
+            
+            ++index &= kTxDescMask;
         }
-        desc->buffer_addr = OSSwapHostToLittleInt64(txSegments[i].location);
-        desc->lower.data = OSSwapHostToLittleInt32(word1);
-        desc->upper.data = OSSwapHostToLittleInt32(cmd2);
-        
-        ++index &= kTxDescMask;
+    } else {
+        for (i = 0; i < numSegs; i++) {
+            desc = &txDescArray[index];
+            word1 = (cmd | (txSegments[i].length & 0x000fffff));
+            
+            if (i == lastSeg) {
+                word1 |= opts;
+                txBufArray[index].mbuf = m;
+                txBufArray[index].numDescs = numDescs;
+            } else {
+                txBufArray[index].mbuf = NULL;
+                txBufArray[index].numDescs = 0;
+            }
+            
+#ifdef DEBUG
+            txBufArray[index].pad = (UInt32)txSegments[i].length;
+#endif
+            
+            desc->buffer_addr = OSSwapHostToLittleInt64(txSegments[i].location);
+            desc->lower.data = OSSwapHostToLittleInt32(word1);
+            desc->upper.data = OSSwapHostToLittleInt32(word2);
+            
+            ++index &= kTxDescMask;
+        }
     }
 	intelUpdateTxDescTail(txNextDescIndex);
     
@@ -1696,8 +1777,6 @@ void IntelMausi::setLinkUp()
     DebugLog("Ethernet [IntelMausi]: CTRL=0x%08x\n", intelReadMem32(E1000_CTRL));
     DebugLog("Ethernet [IntelMausi]: CTRL_EXT=0x%08x\n", intelReadMem32(E1000_CTRL_EXT));
     DebugLog("Ethernet [IntelMausi]: STATUS=0x%08x\n", intelReadMem32(E1000_STATUS));
-    DebugLog("Ethernet [IntelMausi]: GCR=0x%08x\n", intelReadMem32(E1000_GCR));
-    DebugLog("Ethernet [IntelMausi]: GCR2=0x%08x\n", intelReadMem32(E1000_GCR2));
     DebugLog("Ethernet [IntelMausi]: RCTL=0x%08x\n", intelReadMem32(E1000_RCTL));
     DebugLog("Ethernet [IntelMausi]: PSRCTL=0x%08x\n", intelReadMem32(E1000_PSRCTL));
     DebugLog("Ethernet [IntelMausi]: FCRTL=0x%08x\n", intelReadMem32(E1000_FCRTL));
@@ -1712,8 +1791,10 @@ void IntelMausi::setLinkUp()
     DebugLog("Ethernet [IntelMausi]: RAH(0)=0x%08x\n", intelReadMem32(E1000_RAH(0)));
     DebugLog("Ethernet [IntelMausi]: MRQC=0x%08x\n", intelReadMem32(E1000_MRQC));
     DebugLog("Ethernet [IntelMausi]: TARC(0)=0x%08x\n", intelReadMem32(E1000_TARC(0)));
+    DebugLog("Ethernet [IntelMausi]: TARC(1)=0x%08x\n", intelReadMem32(E1000_TARC(1)));
     DebugLog("Ethernet [IntelMausi]: TCTL=0x%08x\n", intelReadMem32(E1000_TCTL));
     DebugLog("Ethernet [IntelMausi]: TXDCTL(0)=0x%08x\n", intelReadMem32(E1000_TXDCTL(0)));
+    DebugLog("Ethernet [IntelMausi]: TXDCTL(1)=0x%08x\n", intelReadMem32(E1000_TXDCTL(1)));
     DebugLog("Ethernet [IntelMausi]: TADV=0x%08x\n", intelReadMem32(E1000_TADV));
     DebugLog("Ethernet [IntelMausi]: TIDV=0x%08x\n", intelReadMem32(E1000_TIDV));
     DebugLog("Ethernet [IntelMausi]: MANC=0x%08x\n", intelReadMem32(E1000_MANC));
@@ -2117,7 +2198,11 @@ bool IntelMausi::checkForDeadlock()
 
             for (i = 0; i < 30; i++) {
                 index = ((stalledIndex - 20 + i) & kTxDescMask);
+#ifdef DEBUG
+                IOLog("Ethernet [IntelMausi]: desc[%u]: lower=0x%08x, upper=0x%08x, addr=0x%016llx, mbuf=0x%016llx, len=%u.\n", index, txDescArray[index].lower.data, txDescArray[index].upper.data, txDescArray[index].buffer_addr, (UInt64)txBufArray[index].mbuf, txBufArray[index].pad);
+#else
                 IOLog("Ethernet [IntelMausi]: desc[%u]: lower=0x%08x, upper=0x%08x, addr=0x%016llx, mbuf=0x%016llx.\n", index, txDescArray[index].lower.data, txDescArray[index].upper.data, txDescArray[index].buffer_addr, (UInt64)txBufArray[index].mbuf);
+#endif
             }
             if (m) {
                 pktSize = (UInt32)mbuf_pkthdr_len(m);
@@ -2149,7 +2234,8 @@ bool IntelMausi::checkForDeadlock()
             deadlock = true;
         } else {
             DebugLog("Ethernet [IntelMausi]: Check tx ring for progress. txNumFreeDesc=%u\n", txNumFreeDesc);
-
+            /* Flush pending tx descriptors. */
+            intelFlushDescriptors();
             /* Check the transmitter ring. */
             txInterrupt();
         }

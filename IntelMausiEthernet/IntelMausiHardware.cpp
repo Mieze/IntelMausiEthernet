@@ -245,8 +245,6 @@ void IntelMausi::intelEnable()
     
 	intelEnableIRQ(intrMask);
     
-	adapterData.tx_hang_recheck = false;
-    
 	hw->mac.get_link_status = true;
 }
 
@@ -355,8 +353,9 @@ void IntelMausi::intelConfigureTx(struct e1000_adapter *adapter)
     
     txdctl = intelReadMem32(E1000_TXDCTL(0));
 
+    /* Fix TXDCTL for 82579, I217 and I218. */
     if ((chipType == board_pch_lpt) || (chipType == board_pch2lan)) {
-        txdctl = 0;
+        txdctl = 0x0141010f;
         intelWriteMem32(E1000_TXDCTL(0), txdctl);
     }
     /* erratum work around: set txdctl the same for both queues */
@@ -365,8 +364,7 @@ void IntelMausi::intelConfigureTx(struct e1000_adapter *adapter)
 	/* Program the Transmit Control Register */
 	tctl = intelReadMem32(E1000_TCTL);
 	tctl &= ~E1000_TCTL_CT;
-	tctl |= E1000_TCTL_PSP | E1000_TCTL_RTLC |
-    (E1000_COLLISION_THRESHOLD << E1000_CT_SHIFT);
+	tctl |= E1000_TCTL_PSP | E1000_TCTL_RTLC | (E1000_COLLISION_THRESHOLD << E1000_CT_SHIFT);
     
 	/* errata: program both queues to unweighted RR */
 	if (adapter->flags & FLAG_TARC_SET_BIT_ZERO) {
@@ -1040,9 +1038,7 @@ void IntelMausi::intelRestart()
 	clear_bit(__E1000_DOWN, &adapterData.state);
     
 	intelEnableIRQ(intrMask);
-    
-	adapterData.tx_hang_recheck = false;
-    
+        
 	adapterData.hw.mac.get_link_status = true;
 }
 
@@ -1122,6 +1118,25 @@ inline void IntelMausi::intelEnablePCIDevice(IOPCIDevice *provider)
     cmdReg |= (kIOPCICommandBusMaster | kIOPCICommandMemorySpace | kIOPCICommandMemWrInvalidate);
     cmdReg &= ~kIOPCICommandIOSpace;
 	provider->configWrite16(kIOPCIConfigCommand, cmdReg);
+}
+
+void IntelMausi::intelFlushDescriptors()
+{
+    /* flush pending descriptor writebacks to memory */
+    intelWriteMem32(E1000_TIDV, adapterData.tx_int_delay | E1000_TIDV_FPD);
+    //intelWriteMem32(E1000_RDTR, adapterData.rx_int_delay | E1000_RDTR_FPD);
+    
+    /* execute the writes immediately */
+    intelFlush();
+    
+    /* due to rare timing issues, write to TIDV/RDTR again to ensure the
+     * write is successful
+     */
+    intelWriteMem32(E1000_TIDV, adapterData.tx_int_delay | E1000_TIDV_FPD);
+    //intelWriteMem32(E1000_RDTR, adapterData.rx_int_delay | E1000_RDTR_FPD);
+    
+    /* execute the writes immediately */
+    intelFlush();
 }
 
 bool IntelMausi::intelCheckLink(struct e1000_adapter *adapter)
