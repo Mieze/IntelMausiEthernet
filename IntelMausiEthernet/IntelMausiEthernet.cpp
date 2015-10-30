@@ -1479,7 +1479,7 @@ void IntelMausi::rxInterrupt()
         
         if (!newPkt) {
             /* Allocation of a new packet failed so that we must leave the original packet in place. */
-            DebugLog("Ethernet [IntelMausi]: replaceOrCopyPacket() failed.\n");
+            //DebugLog("Ethernet [IntelMausi]: replaceOrCopyPacket() failed.\n");
             etherStats->dot3RxExtraEntry.resourceErrors++;
             goto nextDesc;
         }
@@ -1799,6 +1799,7 @@ void IntelMausi::setLinkUp()
     DebugLog("Ethernet [IntelMausi]: TIDV=0x%08x\n", intelReadMem32(E1000_TIDV));
     DebugLog("Ethernet [IntelMausi]: MANC=0x%08x\n", intelReadMem32(E1000_MANC));
     DebugLog("Ethernet [IntelMausi]: MANC2H=0x%08x\n", intelReadMem32(E1000_MANC2H));
+    DebugLog("Ethernet [IntelMausi]: LTRV=0x%08x\n", intelReadMem32(E1000_LTRV));
 }
 
 void IntelMausi::setLinkDown()
@@ -2046,8 +2047,8 @@ bool IntelMausi::intelStart()
     if (hw->mac.type == e1000_pch_lpt)
         intrMask |= E1000_IMS_ECCER;
 
-    IOLog("Ethernet [IntelMausi]: %s (Rev. %u) at 0x%lx, %02x:%02x:%02x:%02x:%02x:%02x\n",
-          deviceTable[chip].deviceName, pciDeviceData.revision, (unsigned long)baseAddr,
+    IOLog("Ethernet [IntelMausi]: %s (Rev. %u), %02x:%02x:%02x:%02x:%02x:%02x\n",
+          deviceTable[chip].deviceName, pciDeviceData.revision,
           mac->addr[0], mac->addr[1], mac->addr[2], mac->addr[3], mac->addr[4], mac->addr[5]);
     result = true;
     
