@@ -59,7 +59,7 @@ bool IntelMausi::initPCIConfigSpace(IOPCIDevice *provider)
     baseAddr = reinterpret_cast<volatile void *>(baseMap->getVirtualAddress());
     adapterData.hw.hw_addr = (u8 __iomem *)baseAddr;
     
-    if (adapterData.flags & FLAG_HAS_FLASH) {
+    if ((adapterData.flags & FLAG_HAS_FLASH)  && adapterData.hw.mac.type < e1000_pch_spt) {
         flashMap = provider->mapDeviceMemoryWithRegister(kIOPCIConfigBaseAddress1, kIOMapInhibitCache);
         
         if (!flashMap) {
