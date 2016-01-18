@@ -1,5 +1,5 @@
 /* Intel PRO/1000 Linux driver
- * Copyright(c) 1999 - 2014 Intel Corporation.
+ * Copyright(c) 1999 - 2015 Intel Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -141,6 +141,7 @@
 #define E1000_RCTL_LBM_TCVR       0x000000C0    /* tcvr loopback mode */
 #define E1000_RCTL_DTYP_PS        0x00000400    /* Packet Split descriptor */
 #define E1000_RCTL_RDMTS_HALF     0x00000000    /* Rx desc min threshold size */
+#define E1000_RCTL_RDMTS_HEX      0x00010000
 #define E1000_RCTL_MO_SHIFT       12            /* multicast offset shift */
 #define E1000_RCTL_MO_3           0x00003000    /* multicast offset 15:4 */
 #define E1000_RCTL_BAM            0x00008000    /* broadcast enable */
@@ -440,12 +441,13 @@
 #define E1000_IMS_RXQ1      E1000_ICR_RXQ1      /* Rx Queue 1 Interrupt */
 #define E1000_IMS_TXQ0      E1000_ICR_TXQ0      /* Tx Queue 0 Interrupt */
 #define E1000_IMS_TXQ1      E1000_ICR_TXQ1      /* Tx Queue 1 Interrupt */
-#define E1000_IMS_OTHER     E1000_ICR_OTHER     /* Other Interrupts */
+#define E1000_IMS_OTHER     E1000_ICR_OTHER     /* Other Interrupt */
 
 /* Interrupt Cause Set */
 #define E1000_ICS_LSC       E1000_ICR_LSC       /* Link Status Change */
 #define E1000_ICS_RXSEQ     E1000_ICR_RXSEQ     /* Rx sequence error */
 #define E1000_ICS_RXDMT0    E1000_ICR_RXDMT0    /* Rx desc min. threshold */
+#define E1000_ICS_OTHER     E1000_ICR_OTHER     /* Other Interrupt */
 
 /* Transmit Descriptor Control */
 #define E1000_TXDCTL_PTHRESH 0x0000003F /* TXDCTL Prefetch Threshold */

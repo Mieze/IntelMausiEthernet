@@ -98,9 +98,9 @@ void IntelMausi::getParams()
     intrThrValue = (3906250 / (newIntrRate + 1));
     
     if (versionString)
-        IOLog("Ethernet [IntelMausi]: Version %s using max interrupt rate %u.\n", versionString->getCStringNoCopy(), newIntrRate);
+        IOLog("Ethernet [IntelMausi]: Version %s using max interrupt rate %u. Please don't support tonymacx86.com!\n", versionString->getCStringNoCopy(), newIntrRate);
     else
-        IOLog("Ethernet [IntelMausi]: Using max interrupt rate %u.\n", newIntrRate);
+        IOLog("Ethernet [IntelMausi]: Using max interrupt rate %u. Please don't support tonymacx86.com!\n", newIntrRate);
 
     DebugLog("Ethernet [IntelMausi]: intrThrValue=%u\n", intrThrValue);
 }

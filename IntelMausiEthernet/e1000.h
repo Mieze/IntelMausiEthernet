@@ -1,5 +1,5 @@
 /* Intel PRO/1000 Linux driver
- * Copyright(c) 1999 - 2014 Intel Corporation.
+ * Copyright(c) 1999 - 2015 Intel Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -36,12 +36,13 @@
 #include <linux/pci-aspm.h>
 #include <linux/crc32.h>
 #include <linux/if_vlan.h>
-#include <linux/clocksource.h>
+#include <linux/timecounter.h>
 #include <linux/net_tstamp.h>
 #include <linux/ptp_clock_kernel.h>
 #include <linux/ptp_classify.h>
 #include <linux/mii.h>
 #include <linux/mdio.h>
+#include <linux/pm_qos.h>
 
 #endif /* DISABLED_CODE */
 
@@ -106,6 +107,8 @@ struct e1000_info;
 #define DEFAULT_RADV			8
 #define BURST_RDTR			0x20
 #define BURST_RADV			0x20
+#define PCICFG_DESC_RING_STATUS		0xe4
+#define FLUSH_DESC_REQUIRED		0x100
 
 /* in the case of WTHRESH, it appears at least the 82571/2 hardware
  * writes back 4 descriptors when WTHRESH=5, and 3 descriptors when
@@ -131,20 +134,23 @@ struct e1000_info;
 enum e1000_boards {
     
 #if DISABLED_CODE
+    
 	board_82571,
 	board_82572,
 	board_82573,
 	board_82574,
 	board_82583,
-    board_80003es2lan,
+	board_80003es2lan,
+    
 #endif /* DISABLED_CODE */
 
-    board_ich8lan,
+	board_ich8lan,
 	board_ich9lan,
 	board_ich10lan,
 	board_pchlan,
 	board_pch2lan,
 	board_pch_lpt,
+	board_pch_spt
 };
 
 struct e1000_ps_page {
@@ -216,7 +222,7 @@ struct e1000_phy_regs {
 
 /* board specific private data structure */
 struct e1000_adapter {
-
+    
 #if DISABLED_CODE
 
 	struct timer_list watchdog_timer;
@@ -246,11 +252,10 @@ struct e1000_adapter {
 	/* track device up/down/testing state */
 	unsigned long state;
 
-	/* Interrupt Throttle Rate */
-
 #if DISABLED_CODE
 
-    u32 itr;
+	/* Interrupt Throttle Rate */
+	u32 itr;
 	u32 itr_setting;
 	u16 tx_itr;
 	u16 rx_itr;
@@ -266,19 +271,16 @@ struct e1000_adapter {
 
 	struct napi_struct napi;
 
-
 	unsigned int uncorr_errors;	/* uncorrectable ECC errors */
 	unsigned int corr_errors;	/* correctable ECC errors */
 	unsigned int restart_queue;
-    
 	u32 txd_cmd;
 
 	bool detect_tx_hung;
 	bool tx_hang_recheck;
+	u8 tx_timeout_factor;
 
 #endif /* DISABLED_CODE */
-
-    u8 tx_timeout_factor;
 
 	u32 tx_int_delay;
 	u32 tx_abs_int_delay;
@@ -349,17 +351,16 @@ struct e1000_adapter {
 	/* Snapshot of PHY registers */
 	struct e1000_phy_regs phy_regs;
 
+#if DISABLED_CODE
+
 	struct e1000_ring test_tx_ring;
 	struct e1000_ring test_rx_ring;
 	u32 test_icr;
-
-#if DISABLED_CODE
 
 	u32 msg_enable;
 	unsigned int num_vectors;
 	struct msix_entry *msix_entries;
 	int int_mode;
-    
 	u32 eiac_mask;
 
 #endif /* DISABLED_CODE */
@@ -380,14 +381,10 @@ struct e1000_adapter {
 	struct work_struct update_phy_task;
 	struct work_struct print_hang_task;
 
-#endif /* DISABLED_CODE */
-
 	int phy_hang_count;
 
 	u16 tx_ring_count;
 	u16 rx_ring_count;
-
-#if DISABLED_CODE
 
 	struct hwtstamp_config hwtstamp_config;
 	struct delayed_work systim_overflow_work;
@@ -399,10 +396,11 @@ struct e1000_adapter {
 	struct timecounter tc;
 	struct ptp_clock *ptp_clock;
 	struct ptp_clock_info ptp_clock_info;
+	struct pm_qos_request pm_qos_req;
 
 #endif /* DISABLED_CODE */
 
-	u16 eee_advert;
+    u16 eee_advert;
 };
 
 struct e1000_info {
@@ -439,6 +437,10 @@ s32 e1000e_get_base_timinca(struct e1000_adapter *adapter, u32 *timinca);
 #define INCVALUE_25MHz		40
 #define INCVALUE_SHIFT_25MHz	18
 #define INCPERIOD_25MHz		1
+
+#define INCVALUE_24MHz		125
+#define INCVALUE_SHIFT_24MHz	14
+#define INCPERIOD_24MHz		3
 
 /* Another drawback of scaling the incvalue by a large factor is the
  * 64-bit SYSTIM register overflows more quickly.  This is dealt with
@@ -530,7 +532,7 @@ extern const char e1000e_driver_version[];
 void e1000e_check_options(struct e1000_adapter *adapter);
 void e1000e_set_ethtool_ops(struct net_device *netdev);
 
-int e1000e_up(struct e1000_adapter *adapter);
+void e1000e_up(struct e1000_adapter *adapter);
 void e1000e_down(struct e1000_adapter *adapter, bool reset);
 void e1000e_reinit_locked(struct e1000_adapter *adapter);
 void e1000e_reset(struct e1000_adapter *adapter);
@@ -543,7 +545,7 @@ struct rtnl_link_stats64 *e1000e_get_stats64(struct net_device *netdev,
 					     struct rtnl_link_stats64 *stats);
 void e1000e_set_interrupt_capability(struct e1000_adapter *adapter);
 void e1000e_reset_interrupt_capability(struct e1000_adapter *adapter);
-extern void e1000e_get_hw_control(struct e1000_adapter *adapter);
+void e1000e_get_hw_control(struct e1000_adapter *adapter);
 void e1000e_release_hw_control(struct e1000_adapter *adapter);
 void e1000e_write_itr(struct e1000_adapter *adapter, u32 itr);
 
@@ -560,10 +562,10 @@ extern const struct e1000_info e1000_ich10_info;
 extern const struct e1000_info e1000_pch_info;
 extern const struct e1000_info e1000_pch2_info;
 extern const struct e1000_info e1000_pch_lpt_info;
+extern const struct e1000_info e1000_pch_spt_info;
+extern const struct e1000_info e1000_es2_info;
 
 #if DISABLED_CODE
-
-extern const struct e1000_info e1000_es2_info;
 
 void e1000e_ptp_init(struct e1000_adapter *adapter);
 void e1000e_ptp_remove(struct e1000_adapter *adapter);
@@ -660,6 +662,7 @@ void __ew32(struct e1000_hw *hw, unsigned long reg, u32 val);
 
 #endif /* DISABLED_CODE */
 
+/* Added by LM 2016-01-09 */
 void e1000e_update_phy_stats(struct e1000_adapter *adapter);
 
 #endif /* _E1000_H_ */

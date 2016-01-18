@@ -1,5 +1,5 @@
 /* Intel PRO/1000 Linux driver
- * Copyright(c) 1999 - 2014 Intel Corporation.
+ * Copyright(c) 1999 - 2015 Intel Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -2654,7 +2654,7 @@ static s32 e1000_access_phy_wakeup_reg_bm(struct e1000_hw *hw, u32 offset,
 {
 	s32 ret_val;
 	u16 reg = BM_PHY_REG_NUM(offset);
-	//u16 page = BM_PHY_REG_PAGE(offset);
+	u16 page = BM_PHY_REG_PAGE(offset);
 	u16 phy_reg = 0;
 
 	/* Gig must be disabled for MDIO accesses to Host Wakeup reg page */

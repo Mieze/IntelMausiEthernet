@@ -364,6 +364,9 @@ private:
     void intelRestart();
     bool intelCheckLink(struct e1000_adapter *adapter);
     void intelFlushDescriptors();
+    void intelFlushTxRing(struct e1000_adapter *adapter);
+    void intelFlushRxRing(struct e1000_adapter *adapter);
+    void intelFlushDescRings(struct e1000_adapter *adapter);
     void intelPhyReadStatus(struct e1000_adapter *adapter);
     void intelInitPhyWakeup(UInt32 wufc);
     void intelFlushLPIC();

@@ -382,4 +382,6 @@ static inline unsigned int _kc_ether_crc_le(int length, unsigned char *data)
 	return crc;
 }
 
+#define VLAN_ETH_FRAME_LEN	1518	/* Max. octets in frame sans FCS */
+
 #endif

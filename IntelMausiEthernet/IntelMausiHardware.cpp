@@ -58,8 +58,9 @@ bool IntelMausi::initPCIConfigSpace(IOPCIDevice *provider)
     }
     baseAddr = reinterpret_cast<volatile void *>(baseMap->getVirtualAddress());
     adapterData.hw.hw_addr = (u8 __iomem *)baseAddr;
+    adapterData.hw.flash_address = NULL;
     
-    if (adapterData.flags & FLAG_HAS_FLASH) {
+    if ((adapterData.flags & FLAG_HAS_FLASH) && (adapterData.hw.mac.type < e1000_pch_spt)) {
         flashMap = provider->mapDeviceMemoryWithRegister(kIOPCIConfigBaseAddress1, kIOMapInhibitCache);
         
         if (!flashMap) {
@@ -254,6 +255,7 @@ void IntelMausi::intelDisable()
     struct e1000_hw *hw = &adapterData.hw;
     UInt32 wufc = adapterData.wol;
     UInt32 ctrl, ctrlExt, rctl, status;
+    int retval;
     
     /* Flush LPIC. */
     intelFlushLPIC();
@@ -309,6 +311,41 @@ void IntelMausi::intelDisable()
         intelWriteMem32(E1000_WUFC, 0);
         intelPowerDownPhy(&adapterData);
     }
+    if ((hw->mac.type == e1000_pch_lpt) ||
+        (hw->mac.type == e1000_pch_spt)) {
+        if (!(wufc & (E1000_WUFC_EX | E1000_WUFC_MC | E1000_WUFC_BC)))
+        /* ULP does not support wake from unicast, multicast
+         * or broadcast.
+         */
+         e1000_enable_ulp_lpt_lp(hw, false);
+    }
+    
+    /* Ensure that the appropriate bits are set in LPI_CTRL
+     * for EEE in Sx
+     */
+    if ((hw->phy.type >= e1000_phy_i217) && adapterData.eee_advert && hw->dev_spec.ich8lan.eee_lp_ability) {
+        UInt16 lpi_ctrl = 0;
+        
+        retval = hw->phy.ops.acquire(hw);
+        if (!retval) {
+            retval = e1e_rphy_locked(hw, I82579_LPI_CTRL, &lpi_ctrl);
+            if (!retval) {
+                if (adapterData.eee_advert &
+                    hw->dev_spec.ich8lan.eee_lp_ability &
+                    I82579_EEE_100_SUPPORTED)
+                    lpi_ctrl |= I82579_LPI_CTRL_100_ENABLE;
+                if (adapterData.eee_advert &
+                    hw->dev_spec.ich8lan.eee_lp_ability &
+                    I82579_EEE_1000_SUPPORTED)
+                    lpi_ctrl |= I82579_LPI_CTRL_1000_ENABLE;
+                
+                retval = e1e_wphy_locked(hw, I82579_LPI_CTRL,
+                                         lpi_ctrl);
+            }
+        }
+        hw->phy.ops.release(hw);
+    }
+
     /* If AMT is enabled, let the firmware know that the network
      * interface is now closed
      */
@@ -379,6 +416,19 @@ void IntelMausi::intelConfigureTx(struct e1000_adapter *adapter)
 	intelWriteMem32(E1000_TCTL, tctl);
     
 	hw->mac.ops.config_collision_dist(hw);
+    
+    /* SPT Si errata workaround to avoid data corruption */
+    if (hw->mac.type == e1000_pch_spt) {
+        UInt32 val;
+        
+        val = intelReadMem32(E1000_IOSFPC);
+        val |= E1000_RCTL_RDMTS_HEX;
+        intelWriteMem32(E1000_IOSFPC, val);
+        
+        val = intelReadMem32(E1000_TARC(0));
+        val |= E1000_TARC0_CB_MULTIQ_3_REQ;
+        intelWriteMem32(E1000_TARC(0), val);
+    }
 }
 
 /**
@@ -538,8 +588,6 @@ void IntelMausi::intelDown(struct e1000_adapter *adapter, bool reset)
     rctl &= ~E1000_RCTL_EN;
 	intelWriteMem32(E1000_RCTL, rctl);
     
-	/* flush and sleep below */
-    
 	/* disable transmits in the hardware */
 	tctl = intelReadMem32(E1000_TCTL);
 	tctl &= ~E1000_TCTL_EN;
@@ -551,7 +599,6 @@ void IntelMausi::intelDown(struct e1000_adapter *adapter, bool reset)
     
 	intelDisableIRQ();
     updateStatistics(adapter);
-    clearDescriptors();
     
 	adapter->link_speed = 0;
 	adapter->link_duplex = 0;
@@ -562,6 +609,10 @@ void IntelMausi::intelDown(struct e1000_adapter *adapter, bool reset)
     
 	if (reset)
 		intelReset(adapter);
+    else if (hw->mac.type == e1000_pch_spt)
+        intelFlushDescRings(adapter);
+    
+    clearDescriptors();
 }
 
 void IntelMausi::intelInitManageabilityPt(struct e1000_adapter *adapter)
@@ -735,6 +786,7 @@ void IntelMausi::intelReset(struct e1000_adapter *adapter)
             break;
         case e1000_pch2lan:
         case e1000_pch_lpt:
+        case e1000_pch_spt:
             fc->refresh_time = 0x0400;
             
             if (mtu <= ETH_DATA_LEN) {
@@ -762,6 +814,9 @@ void IntelMausi::intelReset(struct e1000_adapter *adapter)
     /* Set interrupt throttle value. */
     intelWriteMem32(E1000_ITR, intrThrValue);
     
+    if (hw->mac.type == e1000_pch_spt)
+        intelFlushDescRings(adapter);
+
 	/* Allow time for pending master requests to run */
 	mac->ops.reset_hw(hw);
     
@@ -1030,7 +1085,6 @@ void IntelMausi::intelRestart()
     deadlockWarn = 0;
     forceReset = false;
     eeeMode = 0;
-    adapterData.phy_hang_count = 0;
 
     /* Reinitialize NIC. */
     intelConfigure(&adapterData);
@@ -1116,7 +1170,7 @@ inline void IntelMausi::intelEnablePCIDevice(IOPCIDevice *provider)
     UInt16 cmdReg;
     
     cmdReg = provider->configRead16(kIOPCIConfigCommand);
-    cmdReg |= (kIOPCICommandBusMaster | kIOPCICommandMemorySpace | kIOPCICommandMemWrInvalidate);
+    cmdReg |= (kIOPCICommandBusMaster | kIOPCICommandMemorySpace);
     cmdReg &= ~kIOPCICommandIOSpace;
 	provider->configWrite16(kIOPCIConfigCommand, cmdReg);
 }
@@ -1138,6 +1192,118 @@ void IntelMausi::intelFlushDescriptors()
     
     /* execute the writes immediately */
     intelFlush();
+}
+
+/**
+ * intelFlushTxRing - remove all descriptors from the tx_ring
+ *
+ * We want to clear all pending descriptors from the TX ring.
+ * zeroing happens when the HW reads the regs. We  assign the ring itself as
+ * the data of the next descriptor. We don't care about the data we are about
+ * to reset the HW.
+ */
+void IntelMausi::intelFlushTxRing(struct e1000_adapter *adapter)
+{
+    struct e1000_data_desc *desc = NULL;
+    UInt32 tdt, tctl, txdLower = E1000_TXD_CMD_IFCS;
+    UInt16 size = 512;
+    
+    tctl = intelReadMem32(E1000_TCTL);
+    intelWriteMem32(E1000_TCTL, tctl | E1000_TCTL_EN);
+    tdt = intelReadMem32(E1000_TDT(0));
+    
+    if (tdt != txNextDescIndex) {
+        IOLog("Ethernet [IntelMausi]: Failed to flush tx descriptor ring.\n");
+        goto done;
+    }
+    DebugLog("Ethernet [IntelMausi]: Flushing tx descriptor ring.\n");
+
+    OSAddAtomic(-1, &txNumFreeDesc);
+    desc = &txDescArray[txNextDescIndex++];
+    txNextDescIndex &= kTxDescMask;
+
+    desc->buffer_addr = OSSwapHostToLittleInt64(txPhyAddr);
+    desc->lower.data = OSSwapHostToLittleInt32(txdLower | size);
+    desc->upper.data = 0;
+    
+    intelWriteMem32(E1000_TDT(0), txNextDescIndex);
+    intelFlush();
+    usleep_range(200, 250);
+    
+done:
+    return;
+}
+
+/**
+ * intelFlushRxRing - remove all descriptors from the rx_ring
+ *
+ * Mark all descriptors in the RX ring as consumed and disable the rx ring
+ */
+void IntelMausi::intelFlushRxRing(struct e1000_adapter *adapter)
+{
+    UInt32 rctl, rxdctl;
+    
+    DebugLog("Ethernet [IntelMausi]: Flushing rx descriptor ring.\n");
+
+    rctl = intelReadMem32(E1000_RCTL);
+    intelWriteMem32(E1000_RCTL, rctl & ~E1000_RCTL_EN);
+    intelFlush();
+    usleep_range(100, 150);
+    
+    rxdctl = intelReadMem32(E1000_RXDCTL(0));
+    /* zero the lower 14 bits (prefetch and host thresholds) */
+    rxdctl &= 0xffffc000;
+    
+    /* update thresholds: prefetch threshold to 31, host threshold to 1
+     * and make sure the granularity is "descriptors" and not "cache lines"
+     */
+    rxdctl |= (0x1F | (1 << 8) | E1000_RXDCTL_THRESH_UNIT_DESC);
+    
+    intelWriteMem32(E1000_RXDCTL(0), rxdctl);
+    /* momentarily enable the RX ring for the changes to take effect */
+    intelWriteMem32(E1000_RCTL, rctl | E1000_RCTL_EN);
+    intelFlush();
+    usleep_range(100, 150);
+    intelWriteMem32(E1000_RCTL, rctl & ~E1000_RCTL_EN);
+}
+
+/**
+ * intelFlushDescRings - remove all descriptors from the descriptor rings
+ *
+ * In i219, the descriptor rings must be emptied before resetting the HW
+ * or before changing the device state to D3 during runtime (runtime PM).
+ *
+ * Failure to do this will cause the HW to enter a unit hang state which can
+ * only be released by PCI reset on the device
+ *
+ */
+
+void IntelMausi::intelFlushDescRings(struct e1000_adapter *adapter)
+{
+    UInt16 hangState;
+    u32 fext_nvm11, tdlen;
+    struct e1000_hw *hw = &adapter->hw;
+    
+    /* First, disable MULR fix in FEXTNVM11 */
+    fext_nvm11 = er32(FEXTNVM11);
+    fext_nvm11 |= E1000_FEXTNVM11_DISABLE_MULR_FIX;
+    ew32(FEXTNVM11, fext_nvm11);
+    /* do nothing if we're not in faulty state, or if the queue is empty */
+    tdlen = er32(TDLEN(0));
+    hangState = pciDevice->configRead16(PCICFG_DESC_RING_STATUS);
+
+    if (!(hangState & FLUSH_DESC_REQUIRED) || !tdlen)
+        goto done;
+    
+    intelFlushTxRing(adapter);
+    /* recheck, maybe the fault is caused by the rx ring */
+    hangState = pciDevice->configRead16(PCICFG_DESC_RING_STATUS);
+
+    if (hangState & FLUSH_DESC_REQUIRED)
+        intelFlushRxRing(adapter);
+
+done:
+    return;
 }
 
 bool IntelMausi::intelCheckLink(struct e1000_adapter *adapter)

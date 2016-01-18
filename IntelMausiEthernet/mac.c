@@ -1,5 +1,5 @@
 /* Intel PRO/1000 Linux driver
- * Copyright(c) 1999 - 2014 Intel Corporation.
+ * Copyright(c) 1999 - 2015 Intel Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -58,8 +58,8 @@ s32 e1000e_get_bus_info_pcie(struct e1000_hw *hw)
 #else
 
 s32 e1000e_get_bus_info_pcie(struct e1000_hw *hw)
-{    
-	return 0;
+{
+    return 0;
 }
 
 #endif /* DISABLED_CODE */
