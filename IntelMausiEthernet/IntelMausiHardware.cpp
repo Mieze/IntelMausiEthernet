@@ -38,7 +38,7 @@ bool IntelMausi::initPCIConfigSpace(IOPCIDevice *provider)
     if (!intelIdentifyChip())
         goto done;
     
-    if (chipType == board_pch_lpt) {
+    if ((chipType == board_pch_lpt) || (chipType == board_pch_spt)) {
         pciDeviceData.maxSnoop = provider->configRead16(E1000_PCI_LTR_CAP_LPT);
         pciDeviceData.maxNoSnoop = provider->configRead16(E1000_PCI_LTR_CAP_LPT + 2);
         DebugLog("Ethernet [IntelMausi]: maxSnoop: 0x%04x, maxNoSnoop: 0x%04x.\n", pciDeviceData.maxSnoop, pciDeviceData.maxNoSnoop);
@@ -391,8 +391,8 @@ void IntelMausi::intelConfigureTx(struct e1000_adapter *adapter)
     
     txdctl = intelReadMem32(E1000_TXDCTL(0));
 
-    /* Fix TXDCTL for 82579, I217 and I218. */
-    if ((chipType == board_pch_lpt) || (chipType == board_pch2lan)) {
+    /* Fix TXDCTL for 82579, I217, I218 and I219. */
+    if ((chipType == board_pch_spt) || (chipType == board_pch_lpt) || (chipType == board_pch2lan)) {
         txdctl = 0x01410101;
         intelWriteMem32(E1000_TXDCTL(0), txdctl);
     }
