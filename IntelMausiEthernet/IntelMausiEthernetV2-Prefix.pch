@@ -47,6 +47,7 @@ typedef u_int32_t ifnet_ctl_cmd_t;
 #include <IOKit/network/IOEthernetInterface.h>
 #include <IOKit/network/IOBasicOutputQueue.h>
 #include <IOKit/pci/IOPCIDevice.h>
+#include <IOKit/IODMACommand.h>
 
 #endif // __cplusplus
 

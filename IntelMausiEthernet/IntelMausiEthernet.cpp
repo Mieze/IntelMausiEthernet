@@ -1491,7 +1491,7 @@ void IntelMausi::rxInterrupt()
         
         /* If the packet was replaced we have to update the descriptor's buffer address. */
         if (replaced) {
-            if (rxMbufCursor->getPhysicalSegmentsWithCoalesce(bufPkt, &rxSegment, 1) != 1) {
+            if (rxMbufCursor->getPhysicalSegments(bufPkt, &rxSegment, 1) != 1) {
                 DebugLog("Ethernet [IntelMausi]: getPhysicalSegmentsWithCoalesce() failed.\n");
                 etherStats->dot3RxExtraEntry.resourceErrors++;
                 freePacket(bufPkt);
@@ -2254,8 +2254,6 @@ bool IntelMausi::checkForDeadlock()
 
 #pragma mark --- miscellaneous functions ---
 
-#if 1
-
 static inline void prepareTSO4(mbuf_t m, UInt32 *mssHeaderSize, UInt32 *payloadSize)
 {
     struct iphdr *ipHdr = (struct iphdr *)((UInt8 *)mbuf_data(m) + ETHER_HDR_LEN);
@@ -2266,7 +2264,7 @@ static inline void prepareTSO4(mbuf_t m, UInt32 *mssHeaderSize, UInt32 *payloadS
     UInt32 hlen = (tcpHdr->th_off << 2) + kMinL4HdrOffsetV4;
     
     ipHdr->tot_len = 0;
-    
+
     csum32 += ntohs(*addr++);
     csum32 += ntohs(*addr++);
     csum32 += ntohs(*addr++);
@@ -2274,6 +2272,10 @@ static inline void prepareTSO4(mbuf_t m, UInt32 *mssHeaderSize, UInt32 *payloadS
     csum32 += (csum32 >> 16);
     tcpHdr->th_sum = htons((UInt16)csum32);
     
+    /* Flush the cache lines in order to enforce writeback. */
+    asm volatile ("clflush %0" : "=m" (ipHdr->tot_len));
+    asm volatile ("clflush %0" : "=m" (tcpHdr->th_sum));
+
     *mssHeaderSize = ((*mssHeaderSize << 16) | (hlen << 8));
     *payloadSize = plen - hlen;
 }
@@ -2289,55 +2291,19 @@ static inline void prepareTSO6(mbuf_t m, UInt32 *mssHeaderSize, UInt32 *payloadS
     UInt32 i;
     
     ip6Hdr->ip6_ctlun.ip6_un1.ip6_un1_plen = 0;
-    
+
     for (i = 0; i < 16; i++)
         csum32 += ntohs(*addr++);
     
     csum32 += (csum32 >> 16);
     tcpHdr->th_sum = htons((UInt16)csum32);
     
-    //DebugLog("Ethernet [IntelMausi]: csum=0x%llx\n", csum64);
+    /* Flush the cache lines in order to enforce writeback. */
+    asm volatile ("clflush %0" : "=m" (ip6Hdr->ip6_ctlun.ip6_un1.ip6_un1_plen));
+    asm volatile ("clflush %0" : "=m" (tcpHdr->th_sum));
     
     *mssHeaderSize = ((*mssHeaderSize << 16) | (hlen << 8));
     *payloadSize = plen - hlen;
 }
 
-#else
-
-static inline void prepareTSO4(mbuf_t m, UInt32 *mssHeaderSize, UInt32 *payloadSize)
-{
-    struct iphdr *ipHdr = (struct iphdr *)((UInt8 *)mbuf_data(m) + ETHER_HDR_LEN);
-    struct tcphdr *tcpHdr = (struct tcphdr *)((UInt8 *)ipHdr + sizeof(struct iphdr));
-    UInt32 plen = ntohs(ipHdr->tot_len) - sizeof(struct iphdr);
-    UInt32 csum = ntohs(tcpHdr->th_sum) - plen;
-    UInt32 hlen = tcpHdr->th_off << 2;
-    
-    //DebugLog("Ethernet [IntelMausi]: hlen=%u, mss=%u\n", hlen, *mssHeaderSize);
-    
-    csum += (csum >> 16);
-    tcpHdr->th_sum = htons((UInt16)csum);
-    
-    *mssHeaderSize = ((*mssHeaderSize << 16) | ((hlen + kMinL4HdrOffsetV4) << 8));
-    *payloadSize = plen - hlen;
-}
-
-static inline void prepareTSO6(mbuf_t m, UInt32 *mssHeaderSize, UInt32 *payloadSize)
-{
-    struct ip6_hdr *ip6Hdr = (struct ip6_hdr *)((UInt8 *)mbuf_data(m) + ETHER_HDR_LEN);
-    struct tcphdr *tcpHdr = (struct tcphdr *)((UInt8 *)ip6Hdr + sizeof(struct ip6_hdr));
-    UInt32 plen = ntohs(ip6Hdr->ip6_ctlun.ip6_un1.ip6_un1_plen);
-    UInt32 csum = ntohs(tcpHdr->th_sum) - plen;
-    UInt32 hlen = tcpHdr->th_off << 2;
-    
-    csum += (csum >> 16);
-    ip6Hdr->ip6_ctlun.ip6_un1.ip6_un1_plen = 0;
-    tcpHdr->th_sum = htons((UInt16)csum);
-    
-    //DebugLog("Ethernet [IntelMausi]: csum=0x%04x\n", (UInt16)(csum & 0xffff));
-
-    *mssHeaderSize = ((*mssHeaderSize << 16) | ((hlen + kMinL4HdrOffsetV6) << 8));
-    *payloadSize = plen - hlen;
-}
-
-#endif
 

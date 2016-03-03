@@ -396,6 +396,7 @@ private:
     volatile void *flashAddr;
     
     /* transmitter data */
+    IODMACommand *txDescDmaCmd;
     IOBufferMemoryDescriptor *txBufDesc;
     IOPhysicalAddress64 txPhyAddr;
     struct e1000_data_desc *txDescArray;
@@ -409,6 +410,7 @@ private:
     UInt16 txCleanBarrierIndex;
     
     /* receiver data */
+    IODMACommand *rxDescDmaCmd;
     IOBufferMemoryDescriptor *rxBufDesc;
     IOPhysicalAddress64 rxPhyAddr;
     union e1000_rx_desc_extended *rxDescArray;

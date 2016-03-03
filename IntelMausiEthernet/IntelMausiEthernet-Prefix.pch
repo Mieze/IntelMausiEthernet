@@ -40,6 +40,7 @@ extern "C" {
 #include <IOKit/network/IOEthernetInterface.h>
 #include <IOKit/network/IOBasicOutputQueue.h>
 #include <IOKit/pci/IOPCIDevice.h>
+#include <IOKit/IODMACommand.h>
 
 #endif // __cplusplus
 

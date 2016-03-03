@@ -215,9 +215,12 @@ error1:
 
 bool IntelMausi::setupDMADescriptors()
 {
+    IODMACommand::Segment64 seg;
     IOPhysicalSegment rxSegment;
     mbuf_t spareMbuf[kRxNumSpareMbufs];
     mbuf_t m;
+    UInt64 offset = 0;
+    UInt32 numSegs = 1;
     UInt32 i;
     bool result = false;
     
@@ -233,8 +236,27 @@ bool IntelMausi::setupDMADescriptors()
         goto error1;
     }
     txDescArray = (struct e1000_data_desc *)txBufDesc->getBytesNoCopy();
-    txPhyAddr = txBufDesc->getPhysicalAddress();
     
+    /* I don't know if it's really necessary but the documenation says so and Apple's drivers are also doing it this way. */
+    txDescDmaCmd = IODMACommand::withSpecification(kIODMACommandOutputHost64, 64, 0, IODMACommand::kMapped, 0, 1);
+    
+    if (!txDescDmaCmd) {
+        IOLog("Ethernet [IntelMausi]: Couldn't alloc txDescDmaCmd.\n");
+        goto error2;
+    }
+    
+    if (txDescDmaCmd->setMemoryDescriptor(txBufDesc) != kIOReturnSuccess) {
+        IOLog("Ethernet [IntelMausi]: setMemoryDescriptor() failed.\n");
+        goto error3;
+    }
+    
+    if (txDescDmaCmd->gen64IOVMSegments(&offset, &seg, &numSegs) != kIOReturnSuccess) {
+        IOLog("Ethernet [IntelMausi]: gen64IOVMSegments() failed.\n");
+        goto error4;
+    }
+    /* Now get tx ring's physical address. */
+    txPhyAddr = seg.fIOVMAddr;
+
     /* Initialize txDescArray. */
     bzero(txDescArray, kTxDescSize);
     
@@ -249,7 +271,7 @@ bool IntelMausi::setupDMADescriptors()
     
     if (!txMbufCursor) {
         IOLog("Ethernet [IntelMausi]: Couldn't create txMbufCursor.\n");
-        goto error2;
+        goto error4;
     }
     
     /* Create receiver descriptor array. */
@@ -257,15 +279,36 @@ bool IntelMausi::setupDMADescriptors()
     
     if (!rxBufDesc) {
         IOLog("Ethernet [IntelMausi]: Couldn't alloc rxBufDesc.\n");
-        goto error3;
+        goto error5;
     }
     
     if (rxBufDesc->prepare() != kIOReturnSuccess) {
         IOLog("Ethernet [IntelMausi]: rxBufDesc->prepare() failed.\n");
-        goto error4;
+        goto error6;
     }
     rxDescArray = (union e1000_rx_desc_extended *)rxBufDesc->getBytesNoCopy();
-    rxPhyAddr = rxBufDesc->getPhysicalAddress();
+    
+    /* I don't know if it's really necessary but the documenation says so and Apple's drivers are also doing it this way. */
+    rxDescDmaCmd = IODMACommand::withSpecification(kIODMACommandOutputHost64, 64, 0, IODMACommand::kMapped, 0, 1);
+    
+    if (!rxDescDmaCmd) {
+        IOLog("Ethernet [IntelMausi]: Couldn't alloc rxDescDmaCmd.\n");
+        goto error7;
+    }
+    
+    if (rxDescDmaCmd->setMemoryDescriptor(rxBufDesc) != kIOReturnSuccess) {
+        IOLog("Ethernet [IntelMausi]: setMemoryDescriptor() failed.\n");
+        goto error8;
+    }
+    offset = 0;
+    numSegs = 1;
+    
+    if (rxDescDmaCmd->gen64IOVMSegments(&offset, &seg, &numSegs) != kIOReturnSuccess) {
+        IOLog("Ethernet [IntelMausi]: gen64IOVMSegments() failed.\n");
+        goto error9;
+    }
+    /* And the rx ring's physical address too. */
+    rxPhyAddr = seg.fIOVMAddr;
     
     /* Initialize rxDescArray. */
     bzero((void *)rxDescArray, kRxDescSize);
@@ -280,7 +323,7 @@ bool IntelMausi::setupDMADescriptors()
     
     if (!rxMbufCursor) {
         IOLog("Ethernet [IntelMausi]: Couldn't create rxMbufCursor.\n");
-        goto error5;
+        goto error9;
     }
     /* Alloc receive buffers. */
     for (i = 0; i < kNumRxDesc; i++) {
@@ -288,13 +331,13 @@ bool IntelMausi::setupDMADescriptors()
         
         if (!m) {
             IOLog("Ethernet [IntelMausi]: Couldn't alloc receive buffer.\n");
-            goto error6;
+            goto error10;
         }
         rxBufArray[i].mbuf = m;
         
-        if (rxMbufCursor->getPhysicalSegmentsWithCoalesce(m, &rxSegment, 1) != 1) {
+        if (rxMbufCursor->getPhysicalSegments(m, &rxSegment, 1) != 1) {
             IOLog("Ethernet [IntelMausi]: getPhysicalSegmentsWithCoalesce() for receive buffer failed.\n");
-            goto error6;
+            goto error10;
         }
         /* We have to keep the physical address of the buffer too
          * as descriptor write back overwrites it in the descriptor
@@ -321,7 +364,7 @@ bool IntelMausi::setupDMADescriptors()
 done:
     return result;
     
-error6:
+error10:
     for (i = 0; i < kNumRxDesc; i++) {
         if (rxBufArray[i].mbuf) {
             freePacket(rxBufArray[i].mbuf);
@@ -330,15 +373,27 @@ error6:
     }
     RELEASE(rxMbufCursor);
     
-error5:
+error9:
+    rxDescDmaCmd->clearMemoryDescriptor();
+
+error8:
+    RELEASE(rxDescDmaCmd);
+
+error7:
     rxBufDesc->complete();
     
-error4:
+error6:
     rxBufDesc->release();
     rxBufDesc = NULL;
     
-error3:
+error5:
     RELEASE(txMbufCursor);
+    
+error4:
+    txDescDmaCmd->clearMemoryDescriptor();
+    
+error3:
+    RELEASE(txDescDmaCmd);
     
 error2:
     txBufDesc->complete();
@@ -359,6 +414,11 @@ void IntelMausi::freeDMADescriptors()
         txBufDesc = NULL;
         txPhyAddr = NULL;
     }
+    if (txDescDmaCmd) {
+        txDescDmaCmd->clearMemoryDescriptor();
+        txDescDmaCmd->release();
+        txDescDmaCmd = NULL;
+    }
     RELEASE(txMbufCursor);
     
     if (rxBufDesc) {
@@ -366,6 +426,11 @@ void IntelMausi::freeDMADescriptors()
         rxBufDesc->release();
         rxBufDesc = NULL;
         rxPhyAddr = NULL;
+    }
+    if (rxDescDmaCmd) {
+        rxDescDmaCmd->clearMemoryDescriptor();
+        rxDescDmaCmd->release();
+        rxDescDmaCmd = NULL;
     }
     RELEASE(rxMbufCursor);
     
