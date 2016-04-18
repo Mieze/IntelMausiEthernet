@@ -28,19 +28,19 @@ bool IntelMausi::initPCIConfigSpace(IOPCIDevice *provider)
     bool result = false;
     
     /* Get vendor and device info. */
-    pciDeviceData.vendor = provider->configRead16(kIOPCIConfigVendorID);
-    pciDeviceData.device = provider->configRead16(kIOPCIConfigDeviceID);
-    pciDeviceData.subsystem_vendor = provider->configRead16(kIOPCIConfigSubSystemVendorID);
-    pciDeviceData.subsystem_device = provider->configRead16(kIOPCIConfigSubSystemID);
-    pciDeviceData.revision = provider->configRead8(kIOPCIConfigRevisionID);
+    pciDeviceData.vendor = provider->extendedConfigRead16(kIOPCIConfigVendorID);
+    pciDeviceData.device = provider->extendedConfigRead16(kIOPCIConfigDeviceID);
+    pciDeviceData.subsystem_vendor = provider->extendedConfigRead16(kIOPCIConfigSubSystemVendorID);
+    pciDeviceData.subsystem_device = provider->extendedConfigRead16(kIOPCIConfigSubSystemID);
+    pciDeviceData.revision = provider->extendedConfigRead8(kIOPCIConfigRevisionID);
     
     /* Identify the chipset. */
     if (!intelIdentifyChip())
         goto done;
     
     if ((chipType == board_pch_lpt) || (chipType == board_pch_spt)) {
-        pciDeviceData.maxSnoop = provider->configRead16(E1000_PCI_LTR_CAP_LPT);
-        pciDeviceData.maxNoSnoop = provider->configRead16(E1000_PCI_LTR_CAP_LPT + 2);
+        pciDeviceData.maxSnoop = provider->extendedConfigRead16(E1000_PCI_LTR_CAP_LPT);
+        pciDeviceData.maxNoSnoop = provider->extendedConfigRead16(E1000_PCI_LTR_CAP_LPT + 2);
         DebugLog("Ethernet [IntelMausi]: maxSnoop: 0x%04x, maxNoSnoop: 0x%04x.\n", pciDeviceData.maxSnoop, pciDeviceData.maxNoSnoop);
     }
     /* Get the bus information. */
@@ -92,7 +92,7 @@ void IntelMausi::initPCIPowerManagment(IOPCIDevice *provider, const struct e1000
     
     /* Setup power management. */
     if (provider->findPCICapability(kIOPCIPowerManagementCapability, &pmCapOffset)) {
-        pmCap = provider->configRead16(pmCapOffset + kIOPCIPMCapability);
+        pmCap = provider->extendedConfigRead16(pmCapOffset + kIOPCIPMCapability);
         DebugLog("Ethernet [IntelMausi]: PCI power management capabilities: 0x%x.\n", pmCap);
         
         if (pmCap & (kPCIPMCPMESupportFromD3Cold | kPCIPMCPMESupportFromD3Hot)) {
@@ -107,8 +107,8 @@ void IntelMausi::initPCIPowerManagment(IOPCIDevice *provider, const struct e1000
     
     /* Get PCIe link information. */
     if (provider->findPCICapability(kIOPCIPCIExpressCapability, &pcieCapOffset)) {
-        pcieLinkCap = provider->configRead32(pcieCapOffset + kIOPCIELinkCapability);
-        pcieLinkCtl = provider->configRead16(pcieCapOffset + kIOPCIELinkControl);
+        pcieLinkCap = provider->extendedConfigRead32(pcieCapOffset + kIOPCIELinkCapability);
+        pcieLinkCtl = provider->extendedConfigRead16(pcieCapOffset + kIOPCIELinkControl);
         DebugLog("Ethernet [IntelMausi]: PCIe link capabilities: 0x%08x, link control: 0x%04x.\n", pcieLinkCap, pcieLinkCtl);
         aspmDisable = 0;
         
@@ -119,10 +119,10 @@ void IntelMausi::initPCIPowerManagment(IOPCIDevice *provider, const struct e1000
             aspmDisable |= kIOPCIELinkCtlL1;
 
         if (aspmDisable)
-            provider->configWrite16(pcieCapOffset + kIOPCIELinkControl, (pcieLinkCtl & ~aspmDisable));
+            provider->extendedConfigWrite16(pcieCapOffset + kIOPCIELinkControl, (pcieLinkCtl & ~aspmDisable));
 
 #ifdef DEBUG
-        pcieLinkCtl = provider->configRead16(pcieCapOffset + kIOPCIELinkControl);
+        pcieLinkCtl = provider->extendedConfigRead16(pcieCapOffset + kIOPCIELinkControl);
         
         if (pcieLinkCtl & (kIOPCIELinkCtlASPM | kIOPCIELinkCtlClkReqEn))
             IOLog("Ethernet [IntelMausi]: PCIe ASPM enabled. link control: 0x%04x.\n", pcieLinkCtl);
@@ -143,12 +143,12 @@ IOReturn IntelMausi::setPowerStateWakeAction(OSObject *owner, void *arg1, void *
         dev = ethCtlr->pciDevice;
         offset = ethCtlr->pciPMCtrlOffset;
         
-        val16 = dev->configRead16(offset);
+        val16 = dev->extendedConfigRead16(offset);
         
         val16 &= ~(kPCIPMCSPowerStateMask | kPCIPMCSPMEStatus | kPCIPMCSPMEEnable);
         val16 |= kPCIPMCSPowerStateD0;
         
-        dev->configWrite16(offset, val16);
+        dev->extendedConfigWrite16(offset, val16);
         
         /* Restore the PCI Command register. */
         ethCtlr->intelEnablePCIDevice(dev);
@@ -167,7 +167,7 @@ IOReturn IntelMausi::setPowerStateSleepAction(OSObject *owner, void *arg1, void 
         dev = ethCtlr->pciDevice;
         offset = ethCtlr->pciPMCtrlOffset;
         
-        val16 = dev->configRead16(offset);
+        val16 = dev->extendedConfigRead16(offset);
         
         val16 &= ~(kPCIPMCSPowerStateMask | kPCIPMCSPMEStatus | kPCIPMCSPMEEnable);
         
@@ -176,7 +176,7 @@ IOReturn IntelMausi::setPowerStateSleepAction(OSObject *owner, void *arg1, void 
         else
             val16 |= kPCIPMCSPowerStateD3;
         
-        dev->configWrite16(offset, val16);
+        dev->extendedConfigWrite16(offset, val16);
     }
     return kIOReturnSuccess;
 }
@@ -214,15 +214,34 @@ void IntelMausi::intelDisableIRQ()
 void IntelMausi::intelEnable()
 {
     struct e1000_hw *hw = &adapterData.hw;
+    const IONetworkMedium *selectedMedium;
+
+    selectedMedium = getSelectedMedium();
     
+    if (!selectedMedium) {
+        DebugLog("Ethernet [IntelMausi]: No medium selected. Falling back to autonegotiation.\n");
+        selectedMedium = mediumTable[MEDIUM_INDEX_AUTO];
+        setCurrentMedium(selectedMedium);
+    }
+    
+#ifdef __PRIVATE_SPI__
+    /* Check if we re waking up from sleep with WoL enabled and still have a valid link. */
+    if (!linkOpts || !intelCheckLink(&adapterData)) {
+        linkOpts = 0;
+        setLinkStatus(kIONetworkLinkValid);
+    }
+#else
+    setLinkStatus(kIONetworkLinkValid);
+#endif /* __PRIVATE_SPI__ */
+
+    intelSetupAdvForMedium(selectedMedium);
+
     e1000_phy_hw_reset(hw);
     
     if (hw->mac.type >= e1000_pch2lan)
 		e1000_resume_workarounds_pchlan(hw);
     
     e1000e_power_up_phy(&adapterData);
-    
-    //intelInitManageabilityPt(&adapterData);
     
     /* If AMT is enabled, let the firmware know that the network
 	 * interface is now open and reset the part to a known state.
@@ -253,10 +272,15 @@ void IntelMausi::intelEnable()
 void IntelMausi::intelDisable()
 {
     struct e1000_hw *hw = &adapterData.hw;
+    UInt32 linkStatus = kIONetworkLinkValid;
     UInt32 wufc = adapterData.wol;
     UInt32 ctrl, ctrlExt, rctl, status;
     int retval;
     
+#ifdef __PRIVATE_SPI__
+    linkOpts = 0;
+#endif /* __PRIVATE_SPI__ */
+
     /* Flush LPIC. */
     intelFlushLPIC();
 
@@ -305,19 +329,25 @@ void IntelMausi::intelDisable()
             intelWriteMem32(E1000_WUC, E1000_WUC_PME_EN);
         }
         DebugLog("Ethernet [IntelMausi]: WUFC=0x%08x.\n", wufc);
+        
+#ifdef __PRIVATE_SPI__
+        linkOpts = kIONetworkLinkNoNetworkChange;
+        linkStatus |= linkOpts;
+#endif /* __PRIVATE_SPI__ */
     } else {
         intelDown(&adapterData, true);
         intelWriteMem32(E1000_WUC, 0);
         intelWriteMem32(E1000_WUFC, 0);
         intelPowerDownPhy(&adapterData);
-    }
-    if ((hw->mac.type == e1000_pch_lpt) ||
-        (hw->mac.type == e1000_pch_spt)) {
-        if (!(wufc & (E1000_WUFC_EX | E1000_WUFC_MC | E1000_WUFC_BC)))
-        /* ULP does not support wake from unicast, multicast
-         * or broadcast.
-         */
-         e1000_enable_ulp_lpt_lp(hw, false);
+
+        /* ULP seems to cause trouble on I218LM3 and I218V3. Enable it only for I219V/LM. */
+        if (hw->mac.type == e1000_pch_spt) {
+            if (!(wufc & (E1000_WUFC_EX | E1000_WUFC_MC | E1000_WUFC_BC)))
+            /* ULP does not support wake from unicast, multicast
+             * or broadcast.
+             */
+                e1000_enable_ulp_lpt_lp(hw, false);
+        }
     }
     
     /* Ensure that the appropriate bits are set in LPI_CTRL
@@ -351,6 +381,12 @@ void IntelMausi::intelDisable()
      */
     if (adapterData.flags & FLAG_HAS_AMT)
         e1000e_release_hw_control(&adapterData);
+    
+    if (linkUp) {
+        linkUp = false;
+        setLinkStatus(linkStatus);
+        IOLog("Ethernet [IntelMausi]: Link down on en%u\n", netif->getUnitNumber());
+    }
 }
 
 /**
@@ -426,7 +462,7 @@ void IntelMausi::intelConfigureTx(struct e1000_adapter *adapter)
         intelWriteMem32(E1000_IOSFPC, val);
         
         val = intelReadMem32(E1000_TARC(0));
-        val |= E1000_TARC0_CB_MULTIQ_3_REQ;
+        val &= ~E1000_TARC0_CB_MULTIQ_3_REQ;
         intelWriteMem32(E1000_TARC(0), val);
     }
 }
@@ -1169,10 +1205,10 @@ inline void IntelMausi::intelEnablePCIDevice(IOPCIDevice *provider)
 {
     UInt16 cmdReg;
     
-    cmdReg = provider->configRead16(kIOPCIConfigCommand);
+    cmdReg = provider->extendedConfigRead16(kIOPCIConfigCommand);
     cmdReg |= (kIOPCICommandBusMaster | kIOPCICommandMemorySpace);
     cmdReg &= ~kIOPCICommandIOSpace;
-	provider->configWrite16(kIOPCIConfigCommand, cmdReg);
+	provider->extendedConfigWrite16(kIOPCIConfigCommand, cmdReg);
 }
 
 void IntelMausi::intelFlushDescriptors()
@@ -1290,14 +1326,14 @@ void IntelMausi::intelFlushDescRings(struct e1000_adapter *adapter)
     ew32(FEXTNVM11, fext_nvm11);
     /* do nothing if we're not in faulty state, or if the queue is empty */
     tdlen = er32(TDLEN(0));
-    hangState = pciDevice->configRead16(PCICFG_DESC_RING_STATUS);
+    hangState = pciDevice->extendedConfigRead16(PCICFG_DESC_RING_STATUS);
 
     if (!(hangState & FLUSH_DESC_REQUIRED) || !tdlen)
         goto done;
     
     intelFlushTxRing(adapter);
     /* recheck, maybe the fault is caused by the rx ring */
-    hangState = pciDevice->configRead16(PCICFG_DESC_RING_STATUS);
+    hangState = pciDevice->extendedConfigRead16(PCICFG_DESC_RING_STATUS);
 
     if (hangState & FLUSH_DESC_REQUIRED)
         intelFlushRxRing(adapter);
@@ -1469,6 +1505,105 @@ void IntelMausi::intelInitPhyWakeup(UInt32 wufc)
     
 release:
     hw->phy.ops.release(hw);
+}
+
+void IntelMausi::intelSetupAdvForMedium(const IONetworkMedium *medium)
+{
+    struct e1000_hw *hw = &adapterData.hw;
+    struct e1000_mac_info *mac = &hw->mac;
+    
+    if (adapterData.flags2 & FLAG2_HAS_EEE)
+        hw->dev_spec.ich8lan.eee_disable = true;
+    
+    switch (medium->getIndex()) {
+        case MEDIUM_INDEX_10HD:
+            mac->forced_speed_duplex = ADVERTISE_10_HALF;
+            hw->mac.autoneg = 0;
+            break;
+            
+        case MEDIUM_INDEX_10FD:
+            mac->forced_speed_duplex = ADVERTISE_10_FULL;
+            hw->mac.autoneg = 0;
+            break;
+            
+        case MEDIUM_INDEX_100HD:
+            hw->phy.autoneg_advertised = ADVERTISED_100baseT_Half;
+            hw->mac.autoneg = 1;
+            hw->fc.requested_mode = e1000_fc_none;
+            break;
+            
+        case MEDIUM_INDEX_100FD:
+            hw->phy.autoneg_advertised = ADVERTISED_100baseT_Full;
+            hw->mac.autoneg = 1;
+            hw->fc.requested_mode = e1000_fc_none;
+            break;
+            
+        case MEDIUM_INDEX_100FDFC:
+            hw->phy.autoneg_advertised = ADVERTISED_100baseT_Full;
+            hw->mac.autoneg = 1;
+            hw->fc.requested_mode = e1000_fc_full;
+            break;
+            
+        case MEDIUM_INDEX_1000FD:
+            hw->phy.autoneg_advertised = ADVERTISED_1000baseT_Full;
+            hw->mac.autoneg = 1;
+            hw->fc.requested_mode = e1000_fc_none;
+            break;
+            
+        case MEDIUM_INDEX_1000FDFC:
+            hw->phy.autoneg_advertised = ADVERTISED_1000baseT_Full;
+            hw->mac.autoneg = 1;
+            hw->fc.requested_mode = e1000_fc_full;
+            break;
+            
+        case MEDIUM_INDEX_1000FDEEE:
+            hw->phy.autoneg_advertised = ADVERTISED_1000baseT_Full;
+            hw->mac.autoneg = 1;
+            hw->fc.requested_mode = e1000_fc_none;
+            hw->dev_spec.ich8lan.eee_disable = false;
+            break;
+            
+        case MEDIUM_INDEX_1000FDFCEEE:
+            hw->phy.autoneg_advertised = ADVERTISED_1000baseT_Full;
+            hw->mac.autoneg = 1;
+            hw->fc.requested_mode = e1000_fc_full;
+            hw->dev_spec.ich8lan.eee_disable = false;
+            break;
+            
+        case MEDIUM_INDEX_100FDEEE:
+            hw->phy.autoneg_advertised = ADVERTISED_100baseT_Full;
+            hw->mac.autoneg = 1;
+            hw->fc.requested_mode = e1000_fc_none;
+            hw->dev_spec.ich8lan.eee_disable = false;
+            break;
+            
+        case MEDIUM_INDEX_100FDFCEEE:
+            hw->phy.autoneg_advertised = ADVERTISED_100baseT_Full;
+            hw->mac.autoneg = 1;
+            hw->fc.requested_mode = e1000_fc_full;
+            hw->dev_spec.ich8lan.eee_disable = false;
+            break;
+            
+        default:
+            if (hw->phy.media_type == e1000_media_type_fiber) {
+                hw->phy.autoneg_advertised = ADVERTISED_1000baseT_Full | ADVERTISED_FIBRE | ADVERTISED_Autoneg;
+            } else {
+                hw->phy.autoneg_advertised = (ADVERTISED_10baseT_Half | ADVERTISED_10baseT_Full |
+                                              ADVERTISED_100baseT_Full | ADVERTISED_100baseT_Half |
+                                              ADVERTISED_1000baseT_Full | ADVERTISED_Autoneg |
+                                              ADVERTISED_TP | ADVERTISED_MII);
+                
+                if (adapterData.fc_autoneg)
+                    hw->fc.requested_mode = e1000_fc_default;
+                
+                if (adapterData.flags2 & FLAG2_HAS_EEE)
+                    hw->dev_spec.ich8lan.eee_disable = false;
+            }
+            hw->mac.autoneg = 1;
+            break;
+    }
+    /* clear MDI, MDI(-X) override is only allowed when autoneg enabled */
+    hw->phy.mdix = AUTO_ALL_MODES;
 }
 
 void IntelMausi::intelFlushLPIC()

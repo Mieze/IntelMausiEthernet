@@ -1661,7 +1661,7 @@ static s32 e1000_get_variants_ich8lan(struct e1000_adapter *adapter)
 	return 0;
 }
 
-static DEFINE_MUTEX(nvm_mutex);
+//static DEFINE_MUTEX(nvm_mutex);
 
 /**
  *  e1000_acquire_nvm_ich8lan - Acquire NVM mutex

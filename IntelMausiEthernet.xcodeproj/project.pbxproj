@@ -342,7 +342,7 @@
 		D3CB5B6C1A4394A800A37FAA /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0510;
+				LastUpgradeCheck = 0720;
 				ORGANIZATIONNAME = "Laura Müller";
 			};
 			buildConfigurationList = D3CB5B6F1A4394A800A37FAA /* Build configuration list for PBXProject "IntelMausiEthernet" */;
@@ -468,7 +468,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.10;
+				MACOSX_DEPLOYMENT_TARGET = 10.11;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
 			};
@@ -504,7 +504,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.10;
+				MACOSX_DEPLOYMENT_TARGET = 10.11;
 				SDKROOT = macosx;
 			};
 			name = Release;
@@ -525,7 +525,8 @@
 				GCC_PREFIX_HEADER = "IntelMausiEthernet/IntelMausiEthernet-Prefix.pch";
 				INFOPLIST_FILE = "IntelMausiEthernet/IntelMausiEthernet-Info.plist";
 				MODULE_NAME = com.insanelymac.IntelMausiEthernet;
-				MODULE_VERSION = 1.1.0d3;
+				MODULE_VERSION = 1.1.0d5;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.insanelymac.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 				WRAPPER_EXTENSION = kext;
@@ -548,7 +549,8 @@
 				GCC_PREFIX_HEADER = "IntelMausiEthernet/IntelMausiEthernet-Prefix.pch";
 				INFOPLIST_FILE = "IntelMausiEthernet/IntelMausiEthernet-Info.plist";
 				MODULE_NAME = com.insanelymac.IntelMausiEthernet;
-				MODULE_VERSION = 1.1.0d3;
+				MODULE_VERSION = 1.1.0d5;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.insanelymac.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 				WRAPPER_EXTENSION = kext;
@@ -571,7 +573,8 @@
 				GCC_PREFIX_HEADER = "IntelMausiEthernet/IntelMausiEthernetV2-Prefix.pch";
 				INFOPLIST_FILE = "IntelMausiEthernet/IntelMausiEthernet-Info.plist";
 				MODULE_NAME = com.insanelymac.IntelMausiEthernet;
-				MODULE_VERSION = 2.1.0d3;
+				MODULE_VERSION = 2.1.0d5;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.insanelymac.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = IntelMausiEthernet;
 				SDKROOT = macosx;
 				WRAPPER_EXTENSION = kext;
@@ -594,7 +597,8 @@
 				GCC_PREFIX_HEADER = "IntelMausiEthernet/IntelMausiEthernetV2-Prefix.pch";
 				INFOPLIST_FILE = "IntelMausiEthernet/IntelMausiEthernet-Info.plist";
 				MODULE_NAME = com.insanelymac.IntelMausiEthernet;
-				MODULE_VERSION = 2.1.0d3;
+				MODULE_VERSION = 2.1.0d5;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.insanelymac.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = IntelMausiEthernet;
 				SDKROOT = macosx;
 				WRAPPER_EXTENSION = kext;

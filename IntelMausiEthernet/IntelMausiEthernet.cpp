@@ -144,7 +144,9 @@ bool IntelMausi::init(OSDictionary *properties)
         multicastMode = false;
         linkUp = false;
         
-#ifndef __PRIVATE_SPI__
+#ifdef __PRIVATE_SPI__
+        linkOpts = 0;
+#else
         stalled = false;
 #endif /* __PRIVATE_SPI__ */
         
@@ -404,7 +406,6 @@ void IntelMausi::systemWillShutdown(IOOptionBits specifier)
 
 IOReturn IntelMausi::enable(IONetworkInterface *netif)
 {
-    const IONetworkMedium *selectedMedium;
     IOReturn result = kIOReturnError;
     
     DebugLog("enable() ===>\n");
@@ -424,14 +425,6 @@ IOReturn IntelMausi::enable(IONetworkInterface *netif)
         IOLog("Ethernet [IntelMausi]: Error allocating DMA descriptors.\n");
         goto done;
     }
-    selectedMedium = getSelectedMedium();
-    
-    if (!selectedMedium) {
-        DebugLog("Ethernet [IntelMausi]: No medium selected. Falling back to autonegotiation.\n");
-        selectedMedium = mediumTable[MEDIUM_INDEX_AUTO];
-    }
-    selectMedium(selectedMedium);
-    setLinkStatus(kIONetworkLinkValid);
     intelEnable();
     
     /* In case we are using an msi the interrupt hasn't been enabled by start(). */
@@ -487,12 +480,6 @@ IOReturn IntelMausi::disable(IONetworkInterface *netif)
     interruptSource->disable();
     
     intelDisable();
-    
-    if (linkUp)
-        IOLog("Ethernet [IntelMausi]: Link down on en%u\n", netif->getUnitNumber());
-    
-    linkUp = false;
-    setLinkStatus(kIONetworkLinkValid);
     
     if (mcAddrList) {
         IOFree(mcAddrList, mcListCount * sizeof(IOEthernetAddress));
@@ -1289,106 +1276,12 @@ IOReturn IntelMausi::getHardwareAddress(IOEthernetAddress *addr)
 
 IOReturn IntelMausi::selectMedium(const IONetworkMedium *medium)
 {
-    struct e1000_hw *hw = &adapterData.hw;
-    struct e1000_mac_info *mac = &hw->mac;
     IOReturn result = kIOReturnSuccess;
     
     DebugLog("selectMedium() ===>\n");
 
-    if (adapterData.flags2 & FLAG2_HAS_EEE)
-        hw->dev_spec.ich8lan.eee_disable = true;
-    
     if (medium) {
-        switch (medium->getIndex()) {
-            case MEDIUM_INDEX_AUTO:
-                if (hw->phy.media_type == e1000_media_type_fiber) {
-                    hw->phy.autoneg_advertised = ADVERTISED_1000baseT_Full | ADVERTISED_FIBRE | ADVERTISED_Autoneg;
-                } else {
-                    hw->phy.autoneg_advertised = (ADVERTISED_10baseT_Half | ADVERTISED_10baseT_Full |
-                                                  ADVERTISED_100baseT_Full | ADVERTISED_100baseT_Half |
-                                                  ADVERTISED_1000baseT_Full | ADVERTISED_Autoneg |
-                                                  ADVERTISED_TP | ADVERTISED_MII);
-                    
-                    if (adapterData.fc_autoneg)
-                        hw->fc.requested_mode = e1000_fc_default;
-                    
-                    if (adapterData.flags2 & FLAG2_HAS_EEE)
-                        hw->dev_spec.ich8lan.eee_disable = false;
-                }
-                hw->mac.autoneg = 1;
-                break;
-                
-            case MEDIUM_INDEX_10HD:
-                mac->forced_speed_duplex = ADVERTISE_10_HALF;
-                hw->mac.autoneg = 0;
-                break;
-                
-            case MEDIUM_INDEX_10FD:
-                mac->forced_speed_duplex = ADVERTISE_10_FULL;
-                hw->mac.autoneg = 0;
-                break;
-                
-            case MEDIUM_INDEX_100HD:
-                hw->phy.autoneg_advertised = ADVERTISED_100baseT_Half;
-                hw->mac.autoneg = 1;
-                hw->fc.requested_mode = e1000_fc_none;
-                break;
-                
-            case MEDIUM_INDEX_100FD:
-                hw->phy.autoneg_advertised = ADVERTISED_100baseT_Full;
-                hw->mac.autoneg = 1;
-                hw->fc.requested_mode = e1000_fc_none;
-                break;
-                
-            case MEDIUM_INDEX_100FDFC:
-                hw->phy.autoneg_advertised = ADVERTISED_100baseT_Full;
-                hw->mac.autoneg = 1;
-                hw->fc.requested_mode = e1000_fc_full;
-                break;
-                
-            case MEDIUM_INDEX_1000FD:
-                hw->phy.autoneg_advertised = ADVERTISED_1000baseT_Full;
-                hw->mac.autoneg = 1;
-                hw->fc.requested_mode = e1000_fc_none;
-                break;
-                
-            case MEDIUM_INDEX_1000FDFC:
-                hw->phy.autoneg_advertised = ADVERTISED_1000baseT_Full;
-                hw->mac.autoneg = 1;
-                hw->fc.requested_mode = e1000_fc_full;
-                break;
-                
-            case MEDIUM_INDEX_1000FDEEE:
-                hw->phy.autoneg_advertised = ADVERTISED_1000baseT_Full;
-                hw->mac.autoneg = 1;
-                hw->fc.requested_mode = e1000_fc_none;
-                hw->dev_spec.ich8lan.eee_disable = false;
-                break;
-                
-            case MEDIUM_INDEX_1000FDFCEEE:
-                hw->phy.autoneg_advertised = ADVERTISED_1000baseT_Full;
-                hw->mac.autoneg = 1;
-                hw->fc.requested_mode = e1000_fc_full;
-                hw->dev_spec.ich8lan.eee_disable = false;
-                break;
-                
-            case MEDIUM_INDEX_100FDEEE:
-                hw->phy.autoneg_advertised = ADVERTISED_100baseT_Full;
-                hw->mac.autoneg = 1;
-                hw->fc.requested_mode = e1000_fc_none;
-                hw->dev_spec.ich8lan.eee_disable = false;
-                break;
-                
-            case MEDIUM_INDEX_100FDFCEEE:
-                hw->phy.autoneg_advertised = ADVERTISED_100baseT_Full;
-                hw->mac.autoneg = 1;
-                hw->fc.requested_mode = e1000_fc_full;
-                hw->dev_spec.ich8lan.eee_disable = false;
-                break;
-        }
-        /* clear MDI, MDI(-X) override is only allowed when autoneg enabled */
-        hw->phy.mdix = AUTO_ALL_MODES;
-        
+        intelSetupAdvForMedium(medium);
         setCurrentMedium(medium);
         
         timerSource->cancelTimeout();
@@ -1761,12 +1654,16 @@ void IntelMausi::setLinkUp()
         }
     }
     linkUp = true;
-    setLinkStatus(kIONetworkLinkValid | kIONetworkLinkActive, mediumTable[mediumIndex], mediumSpeed, NULL);
     
 #ifdef __PRIVATE_SPI__
+    setLinkStatus((kIONetworkLinkValid | kIONetworkLinkActive | linkOpts), mediumTable[mediumIndex], mediumSpeed, NULL);
+    linkOpts = 0;
+
     /* Start output thread, statistics update and watchdog. */
     netif->startOutputThread();
 #else
+    setLinkStatus(kIONetworkLinkValid | kIONetworkLinkActive, mediumTable[mediumIndex], mediumSpeed, NULL);
+
     /* Restart txQueue, statistics update and watchdog. */
     txQueue->start();
     
@@ -1916,9 +1813,13 @@ bool IntelMausi::intelStart()
     
     if (adapterData.flags2 & FLAG2_HAS_EEE)
         hw->dev_spec.ich8lan.eee_disable = false;
-    
+
+#ifdef __PRIVATE_SPI__
+    linkOpts = 0;
+#endif /* __PRIVATE_SPI__ */
+
     initPCIPowerManagment(pciDevice, ei);
-        
+    
 	/* Explicitly disable IRQ since the NIC can be in any state. */
 	intelDisableIRQ();
     

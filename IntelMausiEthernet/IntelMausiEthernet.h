@@ -369,6 +369,7 @@ private:
     void intelFlushDescRings(struct e1000_adapter *adapter);
     void intelPhyReadStatus(struct e1000_adapter *adapter);
     void intelInitPhyWakeup(UInt32 wufc);
+    void intelSetupAdvForMedium(const IONetworkMedium *medium);
     void intelFlushLPIC();
     
     UInt16 intelSupportsEEE(struct e1000_adapter *adapter);
@@ -438,7 +439,11 @@ private:
     UInt8 pcieCapOffset;
     UInt8 pciPMCtrlOffset;
     
-    
+#ifdef __PRIVATE_SPI__
+    UInt32 linkOpts;
+    //IONetworkPacketPollingParameters pollParams;
+#endif /* __PRIVATE_SPI__ */
+
     /* flags */
     bool isEnabled;
 	bool promiscusMode;
