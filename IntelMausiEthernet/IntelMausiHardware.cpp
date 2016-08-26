@@ -25,6 +25,7 @@
 
 bool IntelMausi::initPCIConfigSpace(IOPCIDevice *provider)
 {
+    UInt32 lat1, lat2;
     bool result = false;
     
     /* Get vendor and device info. */
@@ -41,7 +42,15 @@ bool IntelMausi::initPCIConfigSpace(IOPCIDevice *provider)
     if ((chipType == board_pch_lpt) || (chipType == board_pch_spt)) {
         pciDeviceData.maxSnoop = provider->extendedConfigRead16(E1000_PCI_LTR_CAP_LPT);
         pciDeviceData.maxNoSnoop = provider->extendedConfigRead16(E1000_PCI_LTR_CAP_LPT + 2);
-        DebugLog("Ethernet [IntelMausi]: maxSnoop: 0x%04x, maxNoSnoop: 0x%04x.\n", pciDeviceData.maxSnoop, pciDeviceData.maxNoSnoop);
+        
+        lat1 = (pciDeviceData.maxSnoop & 0x3ff) << (((pciDeviceData.maxSnoop >> 10) & 0x7) * 5);
+        lat2 = (pciDeviceData.maxNoSnoop & 0x3ff) << (((pciDeviceData.maxNoSnoop >> 10) & 0x7) * 5);
+        maxLatency = (lat1 > lat2) ? lat1 : lat2;
+        
+        if (maxLatency > kMaxDmaLatency)
+            maxLatency = kMaxDmaLatency;
+        
+        DebugLog("Ethernet [IntelMausi]: maxSnoop: 0x%04x (%uns), maxNoSnoop: 0x%04x (%uns).\n", pciDeviceData.maxSnoop, lat1, pciDeviceData.maxNoSnoop, lat2);
     }
     /* Get the bus information. */
     adapterData.hw.bus.func = pciDevice->getFunctionNumber();
@@ -230,6 +239,7 @@ void IntelMausi::intelEnable()
         linkOpts = 0;
         setLinkStatus(kIONetworkLinkValid);
     }
+    polling = false;
 #else
     setLinkStatus(kIONetworkLinkValid);
 #endif /* __PRIVATE_SPI__ */
@@ -264,7 +274,7 @@ void IntelMausi::intelEnable()
 	/* From here on the code is the same as e1000e_up() */
 	clear_bit(__E1000_DOWN, &adapterData.state);
     
-	intelEnableIRQ(intrMask);
+	intelEnableIRQ(intrMaskBasic);
     
 	hw->mac.get_link_status = true;
 }
@@ -278,6 +288,7 @@ void IntelMausi::intelDisable()
     int retval;
     
 #ifdef __PRIVATE_SPI__
+    polling = false;
     linkOpts = 0;
 #endif /* __PRIVATE_SPI__ */
 
@@ -649,6 +660,9 @@ void IntelMausi::intelDown(struct e1000_adapter *adapter, bool reset)
         intelFlushDescRings(adapter);
     
     clearDescriptors();
+    
+    if ((chipType == board_pch_lpt) || (chipType == board_pch_spt))
+        requireMaxBusStall(0);
 }
 
 void IntelMausi::intelInitManageabilityPt(struct e1000_adapter *adapter)
@@ -1128,7 +1142,7 @@ void IntelMausi::intelRestart()
     /* From here on the code is the same as e1000e_up() */
 	clear_bit(__E1000_DOWN, &adapterData.state);
     
-	intelEnableIRQ(intrMask);
+	intelEnableIRQ(intrMaskBasic);
         
 	adapterData.hw.mac.get_link_status = true;
 }
@@ -1321,7 +1335,7 @@ void IntelMausi::intelFlushDescRings(struct e1000_adapter *adapter)
     struct e1000_hw *hw = &adapter->hw;
     
     /* First, disable MULR fix in FEXTNVM11 */
-    fext_nvm11 = er32(FEXTNVM11);
+    fext_nvm11 = intelReadMem32(E1000_FEXTNVM11);
     fext_nvm11 |= E1000_FEXTNVM11_DISABLE_MULR_FIX;
     ew32(FEXTNVM11, fext_nvm11);
     /* do nothing if we're not in faulty state, or if the queue is empty */
@@ -1623,6 +1637,23 @@ void IntelMausi::intelFlushLPIC()
     hw->phy.ops.release(hw);
 }
 
+void IntelMausi::setMaxLatency(UInt32 linkSpeed)
+{
+    struct e1000_hw *hw = &adapterData.hw;
+    UInt32 rxa = intelReadMem32(E1000_PBA) & E1000_PBA_RXA_MASK;
+    UInt32 latency;
+    
+    rxa = rxa << 9;
+    latency = (rxa > hw->adapter->max_frame_size) ? (rxa - hw->adapter->max_frame_size) * (16000 / linkSpeed) : 0;
+    
+    if (maxLatency && (latency > maxLatency))
+        latency = maxLatency;
+    
+    requireMaxBusStall(latency);
+    
+    DebugLog("Ethernet [IntelMausi]: requireMaxBusStall(%uns).\n", latency);
+}
+
 UInt16 IntelMausi::intelSupportsEEE(struct e1000_adapter *adapter)
 {
     struct e1000_hw *hw = &adapter->hw;
@@ -1745,4 +1776,6 @@ release:
 done:
     return error;
 }
+
+
 

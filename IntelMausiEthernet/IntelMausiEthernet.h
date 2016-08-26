@@ -111,6 +111,9 @@ enum {
 /* transmitter deadlock treshhold in seconds. */
 #define kTxDeadlockTreshhold 2
 
+/* Maximum DMA latency in ns. */
+#define kMaxDmaLatency 75000
+
 /* IP specific stuff */
 #define kMinL4HdrOffsetV4 34
 #define kMinL4HdrOffsetV6 54
@@ -282,6 +285,8 @@ public:
 	
 #ifdef __PRIVATE_SPI__
     virtual IOReturn outputStart(IONetworkInterface *interface, IOOptionBits options );
+    virtual IOReturn setInputPacketPollingEnable(IONetworkInterface *interface, bool enabled);
+    virtual void pollInputPackets(IONetworkInterface *interface, uint32_t maxCount, IOMbufQueue *pollQueue, void *context);
 #else
     virtual UInt32 outputPacket(mbuf_t m, void *param);
 #endif /* __PRIVATE_SPI__ */
@@ -323,7 +328,13 @@ private:
     bool initEventSources(IOService *provider);
     void interruptOccurred(OSObject *client, IOInterruptEventSource *src, int count);
     void txInterrupt();
+    
+#ifdef __PRIVATE_SPI__
+    UInt32 rxInterrupt(IONetworkInterface *interface, uint32_t maxCount, IOMbufQueue *pollQueue, void *context);
+#else
     void rxInterrupt();
+#endif /* __PRIVATE_SPI__ */
+
     bool setupDMADescriptors();
     void freeDMADescriptors();
     void clearDescriptors();
@@ -371,6 +382,7 @@ private:
     void intelInitPhyWakeup(UInt32 wufc);
     void intelSetupAdvForMedium(const IONetworkMedium *medium);
     void intelFlushLPIC();
+    void setMaxLatency(UInt32 linkSpeed);
     
     UInt16 intelSupportsEEE(struct e1000_adapter *adapter);
     SInt32 intelEnableEEE(struct e1000_hw *hw, UInt16 mode);
@@ -406,6 +418,7 @@ private:
     UInt64 txDescDoneLast;
     SInt32 txNumFreeDesc;
     UInt32 mtu;
+    UInt32 maxLatency;
     UInt16 txNextDescIndex;
     UInt16 txDirtyIndex;
     UInt16 txCleanBarrierIndex;
@@ -431,7 +444,8 @@ private:
     
     UInt32 chip;
     UInt32 chipType;
-    UInt32 intrMask;
+    UInt32 intrMaskBasic;
+    UInt32 intrMaskFull;
     UInt32 intrThrValue;
     struct e1000_adapter adapterData;
     struct pci_dev pciDeviceData;
@@ -441,7 +455,7 @@ private:
     
 #ifdef __PRIVATE_SPI__
     UInt32 linkOpts;
-    //IONetworkPacketPollingParameters pollParams;
+    IONetworkPacketPollingParameters pollParams;
 #endif /* __PRIVATE_SPI__ */
 
     /* flags */
@@ -450,7 +464,9 @@ private:
 	bool multicastMode;
     bool linkUp;
     
-#ifndef __PRIVATE_SPI__
+#ifdef __PRIVATE_SPI__
+    bool polling;
+#else
     bool stalled;
 #endif /* __PRIVATE_SPI__ */
     
