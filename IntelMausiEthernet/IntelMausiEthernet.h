@@ -444,8 +444,7 @@ private:
     
     UInt32 chip;
     UInt32 chipType;
-    UInt32 intrMaskBasic;
-    UInt32 intrMaskFull;
+    UInt32 intrMask;
     UInt32 intrThrValue;
     struct e1000_adapter adapterData;
     struct pci_dev pciDeviceData;

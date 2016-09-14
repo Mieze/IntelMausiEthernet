@@ -105,7 +105,7 @@ static const char *flowControlNames[kFlowControlTypeCount] = {
 
 static const char* eeeNames[kEEETypeCount] = {
     "",
-    ", EEE"
+    ", energy-efficient-ethernet"
 };
 
 #pragma mark --- public methods ---
@@ -657,9 +657,9 @@ IOReturn IntelMausi::outputStart(IONetworkInterface *interface, IOOptionBits opt
             txBufArray[index].numDescs = 0;
             
 #ifdef DEBUG
-            txBufArray[index].pad = 0;
+            txBufArray[index].pad = numSegs;
 #endif
-
+            
             contDesc->lower_setup.ip_config = OSSwapHostToLittleInt32(ipConfig);
             contDesc->upper_setup.tcp_config = OSSwapHostToLittleInt32(tcpConfig);
             contDesc->cmd_and_length = OSSwapHostToLittleInt32(len);
@@ -1338,16 +1338,13 @@ void IntelMausi::txInterrupt()
         /* Increment txDirtyIndex. */
         ++txDirtyIndex &= kTxDescMask;
     }
+
     //DebugLog("Ethernet [IntelMausi]: txInterrupt oldIndex=%u newIndex=%u\n", oldDirtyIndex, txDirtyDescIndex);
     
 done:
 #ifdef __PRIVATE_SPI__
     if (txNumFreeDesc > kTxQueueWakeTreshhold)
         netif->signalOutputThread();
-    
-    if (!polling)
-        etherStats->dot3TxExtraEntry.interrupts++;
-
 #else
     if (stalled && (txNumFreeDesc > kTxQueueWakeTreshhold)) {
         DebugLog("Ethernet [IntelMausi]: Restart stalled queue!\n");
@@ -1356,8 +1353,6 @@ done:
     }
     etherStats->dot3TxExtraEntry.interrupts++;
 #endif /* __PRIVATE_SPI__ */
-    
-    etherStats->dot3TxExtraEntry.interrupts++;
 }
 
 #ifdef __PRIVATE_SPI__
@@ -1406,7 +1401,7 @@ UInt32 IntelMausi::rxInterrupt(IONetworkInterface *interface, uint32_t maxCount,
         /* If the packet was replaced we have to update the descriptor's buffer address. */
         if (replaced) {
             if (rxMbufCursor->getPhysicalSegments(bufPkt, &rxSegment, 1) != 1) {
-                DebugLog("Ethernet [IntelMausi]: getPhysicalSegmentsWithCoalesce() failed.\n");
+                DebugLog("Ethernet [IntelMausi]: getPhysicalSegments() failed.\n");
                 etherStats->dot3RxExtraEntry.resourceErrors++;
                 freePacket(bufPkt);
                 goto nextDesc;
@@ -1447,7 +1442,6 @@ UInt32 IntelMausi::rxInterrupt(IONetworkInterface *interface, uint32_t maxCount,
         
         rxCleanedCount = 0;
     }
-    //etherStats->dot3RxExtraEntry.interrupts++;
     return goodPkts;
 }
 
@@ -1497,7 +1491,7 @@ void IntelMausi::rxInterrupt()
         /* If the packet was replaced we have to update the descriptor's buffer address. */
         if (replaced) {
             if (rxMbufCursor->getPhysicalSegments(bufPkt, &rxSegment, 1) != 1) {
-                DebugLog("Ethernet [IntelMausi]: getPhysicalSegmentsWithCoalesce() failed.\n");
+                DebugLog("Ethernet [IntelMausi]: getPhysicalSegments() failed.\n");
                 etherStats->dot3RxExtraEntry.resourceErrors++;
                 freePacket(bufPkt);
                 goto nextDesc;
@@ -1594,12 +1588,15 @@ void IntelMausi::interruptOccurred(OSObject *client, IOInterruptEventSource *src
     UInt32 packets;
 
     if (!polling) {
-        if (icr & (E1000_ICR_TXDW | E1000_ICR_TXQ0))
+        if (icr & (E1000_ICR_TXDW | E1000_ICR_TXQ0)) {
             txInterrupt();
-        
+            etherStats->dot3TxExtraEntry.interrupts++;
+        }
+
         if (icr & (E1000_ICR_RXQ0 | E1000_ICR_RXT0 | E1000_ICR_RXDMT0)) {
             packets = rxInterrupt(netif, kNumRxDesc, NULL, NULL);
-            
+            etherStats->dot3RxExtraEntry.interrupts++;
+
             if (packets)
                 netif->flushInputQueue();
         }
@@ -1641,9 +1638,12 @@ IOReturn IntelMausi::setInputPacketPollingEnable(IONetworkInterface *interface, 
 {
     //DebugLog("setInputPacketPollingEnable() ===>\n");
     
-    if (isEnabled)
-        intelEnableIRQ(enabled ? intrMaskBasic : intrMaskFull);
-    
+    if (enabled) {
+        intelWriteMem32(E1000_IMC, ~(E1000_ICR_LSC | E1000_IMS_RXSEQ));
+        intelFlush();
+    } else {
+        intelEnableIRQ(intrMask);
+    }
     polling = enabled;
     
     //DebugLog("input polling %s.\n", enabled ? "enabled" : "disabled");
@@ -1724,7 +1724,7 @@ void IntelMausi::setLinkUp()
     if (phy->ops.cfg_on_link_up)
         phy->ops.cfg_on_link_up(hw);
 
-    intelEnableIRQ(intrMaskFull);
+    intelEnableIRQ(intrMask);
     
     /* Get link speed, duplex and flow-control mode. */
     ctrl = intelReadMem32(E1000_CTRL) & (E1000_CTRL_RFCE | E1000_CTRL_TFCE);
@@ -1881,6 +1881,7 @@ void IntelMausi::setLinkUp()
     DebugLog("Ethernet [IntelMausi]: MANC=0x%08x\n", intelReadMem32(E1000_MANC));
     DebugLog("Ethernet [IntelMausi]: MANC2H=0x%08x\n", intelReadMem32(E1000_MANC2H));
     DebugLog("Ethernet [IntelMausi]: LTRV=0x%08x\n", intelReadMem32(E1000_LTRV));
+    DebugLog("Ethernet [IntelMausi]: PBA=0x%08x\n", intelReadMem32(E1000_PBA));
 }
 
 void IntelMausi::setLinkDown()
@@ -1904,7 +1905,7 @@ void IntelMausi::setLinkDown()
     intelDown(&adapterData, true);
     intelConfigure(&adapterData);
     clear_bit(__E1000_DOWN, &adapterData.state);
-	intelEnableIRQ(intrMaskBasic);
+	intelEnableIRQ(intrMask);
 
     IOLog("Ethernet [IntelMausi]: Link down on en%u\n", netif->getUnitNumber());
 }
@@ -2056,7 +2057,7 @@ bool IntelMausi::intelStart()
 			goto error_eeprom;
 		}
 	}
-	intelEEPROMChecks(&adapterData);
+	//intelEEPROMChecks(&adapterData);
     
 	/* copy the MAC address */
 	if (e1000e_read_mac_addr(hw))
@@ -2128,12 +2129,10 @@ bool IntelMausi::intelStart()
 	if (!(adapterData.flags & FLAG_HAS_AMT))
 		e1000e_get_hw_control(&adapterData);
         
-    intrMaskFull = IMS_ENABLE_MASK;
-    intrMaskBasic = E1000_IMS_LSC;
+    intrMask = IMS_ENABLE_MASK;
     
     if ((hw->mac.type == e1000_pch_lpt) || (hw->mac.type == e1000_pch_spt)) {
-        intrMaskFull |= E1000_IMS_ECCER;
-        intrMaskBasic |= E1000_IMS_ECCER;
+        intrMask |= E1000_IMS_ECCER;
     }
     IOLog("Ethernet [IntelMausi]: %s (Rev. %u), %02x:%02x:%02x:%02x:%02x:%02x\n",
           deviceTable[chip].deviceName, pciDeviceData.revision,
@@ -2281,7 +2280,7 @@ bool IntelMausi::checkForDeadlock()
             UInt32 pktSize;
             UInt16 i, index;
             UInt16 stalledIndex = txDirtyIndex;
-            UInt8 data;
+            //UInt8 data;
             
             IOLog("Ethernet [IntelMausi]: Tx stalled? Resetting chipset. txDirtyDescIndex=%u, STATUS=0x%08x, TCTL=0x%08x.\n", txDirtyIndex, intelReadMem32(E1000_STATUS), intelReadMem32(E1000_TCTL));
 
@@ -2295,7 +2294,7 @@ bool IntelMausi::checkForDeadlock()
             if (m) {
                 pktSize = (UInt32)mbuf_pkthdr_len(m);
                 IOLog("Ethernet [IntelMausi]: packet size=%u, header size=%u.\n", pktSize, (UInt32)mbuf_len(m));
-
+/*
 #ifdef DEBUG
                 IOLog("Ethernet [IntelMausi]: MAC-header: ");
                 for (i = 0; i < 14; i++) {
@@ -2318,6 +2317,7 @@ bool IntelMausi::checkForDeadlock()
                 }
                 IOLog("\n");
 #endif
+*/
             }
             etherStats->dot3TxExtraEntry.resets++;
             intelRestart();

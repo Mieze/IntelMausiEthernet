@@ -210,6 +210,7 @@ void IntelMausi::intelEEPROMChecks(struct e1000_adapter *adapter)
 
 void IntelMausi::intelEnableIRQ(UInt32 newMask)
 {
+    intelWriteMem32(E1000_IMC, ~newMask);
     intelWriteMem32(E1000_IMS, newMask);
     intelFlush();
 }
@@ -274,7 +275,7 @@ void IntelMausi::intelEnable()
 	/* From here on the code is the same as e1000e_up() */
 	clear_bit(__E1000_DOWN, &adapterData.state);
     
-	intelEnableIRQ(intrMaskBasic);
+	intelEnableIRQ(intrMask);
     
 	hw->mac.get_link_status = true;
 }
@@ -438,9 +439,9 @@ void IntelMausi::intelConfigureTx(struct e1000_adapter *adapter)
     
     txdctl = intelReadMem32(E1000_TXDCTL(0));
 
-    /* Fix TXDCTL for 82579, I217, I218 and I219. */
+    /* Fix TXDCTL to disable descriptor prefetch for 82579, I217, I218 and I219. */
     if ((chipType == board_pch_spt) || (chipType == board_pch_lpt) || (chipType == board_pch2lan)) {
-        txdctl = 0x01410101;
+        txdctl = 0x01410000;
         intelWriteMem32(E1000_TXDCTL(0), txdctl);
     }
     /* erratum work around: set txdctl the same for both queues */
@@ -448,8 +449,8 @@ void IntelMausi::intelConfigureTx(struct e1000_adapter *adapter)
 
 	/* Program the Transmit Control Register */
 	tctl = intelReadMem32(E1000_TCTL);
-	tctl &= ~E1000_TCTL_CT;
-	tctl |= E1000_TCTL_PSP | E1000_TCTL_RTLC | (E1000_COLLISION_THRESHOLD << E1000_CT_SHIFT);
+    tctl &= ~E1000_TCTL_CT;
+    tctl |= E1000_TCTL_PSP | E1000_TCTL_RTLC | (E1000_COLLISION_THRESHOLD << E1000_CT_SHIFT);
     
 	/* errata: program both queues to unweighted RR */
 	if (adapter->flags & FLAG_TARC_SET_BIT_ZERO) {
@@ -1142,7 +1143,7 @@ void IntelMausi::intelRestart()
     /* From here on the code is the same as e1000e_up() */
 	clear_bit(__E1000_DOWN, &adapterData.state);
     
-	intelEnableIRQ(intrMaskBasic);
+	intelEnableIRQ(intrMask);
         
 	adapterData.hw.mac.get_link_status = true;
 }
@@ -1175,10 +1176,6 @@ void IntelMausi::intelInitRxRing()
 
 void IntelMausi::intelUpdateTxDescTail(UInt32 index)
 {
-    /* flush updates before updating hardware */
-    OSSynchronizeIO();
-    txCleanBarrierIndex = txNextDescIndex;
-    
     if (adapterData.flags2 & FLAG2_PCIM2PCI_ARBITER_WA) {
         struct e1000_hw *hw = &adapterData.hw;
         s32 ret = __ew32_prepare(hw);
@@ -1194,8 +1191,9 @@ void IntelMausi::intelUpdateTxDescTail(UInt32 index)
             IOLog("Ethernet [IntelMausi]: ME firmware caused invalid TDT - resetting.\n");
         }
     } else {
-        intelWriteMem32(E1000_TDT(0), txNextDescIndex);
+        intelWriteMem32(E1000_TDT(0), index);
     }
+    txCleanBarrierIndex = txNextDescIndex;
 }
 
 void IntelMausi::intelUpdateRxDescTail(UInt32 index)

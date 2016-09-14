@@ -336,7 +336,7 @@ bool IntelMausi::setupDMADescriptors()
         rxBufArray[i].mbuf = m;
         
         if (rxMbufCursor->getPhysicalSegments(m, &rxSegment, 1) != 1) {
-            IOLog("Ethernet [IntelMausi]: getPhysicalSegmentsWithCoalesce() for receive buffer failed.\n");
+            IOLog("Ethernet [IntelMausi]: getPhysicalSegments() for receive buffer failed.\n");
             goto error10;
         }
         /* We have to keep the physical address of the buffer too

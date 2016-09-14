@@ -41,9 +41,9 @@
 			<key>enableCSO6</key>
 			<true/>
 			<key>enableTSO4</key>
-			<true/>
+			<false/>
 			<key>enableTSO6</key>
-			<true/>
+			<false/>
 			<key>maxIntrRate</key>
 			<integer>7000</integer>
 		</dict>
