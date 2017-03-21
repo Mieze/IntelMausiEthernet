@@ -25,6 +25,8 @@ A few days before Christmas I started my latest project, a new driver for recent
   - I219V2
   - I219LM2
   - I219LM3
+- 200 Series
+  - I219V
 
 Key Features of the Driver
 - Support for multisegment packets relieving the network stack of unnecessary copy operations when assembling packets for transmission.
