@@ -222,6 +222,7 @@ bool IntelMausi::setupDMADescriptors()
     UInt64 offset = 0;
     UInt32 numSegs = 1;
     UInt32 i;
+    UInt32 n;
     bool result = false;
     
     /* Create transmitter descriptor array. */
@@ -335,7 +336,9 @@ bool IntelMausi::setupDMADescriptors()
         }
         rxBufArray[i].mbuf = m;
         
-        if (rxMbufCursor->getPhysicalSegments(m, &rxSegment, 1) != 1) {
+        n = rxMbufCursor->getPhysicalSegments(m, &rxSegment, 1);
+        
+        if ((n != 1) || (rxSegment.location & 0x07ff)) {
             IOLog("Ethernet [IntelMausi]: getPhysicalSegments() for receive buffer failed.\n");
             goto error10;
         }
@@ -472,5 +475,21 @@ void IntelMausi::clearDescriptors()
     }
     rxCleanedCount = rxNextDescIndex = 0;
 
+    /* Free packet fragments which haven't been upstreamed yet.  */
+    discardPacketFragment();
+    
     DebugLog("clearDescriptors() <===\n");
+}
+
+void IntelMausi::discardPacketFragment()
+{
+    /*
+     * In case there is a packet fragment which hasn't been enqueued yet
+     * we have to free it in order to prevent a memory leak.
+     */
+    if (rxPacketHead)
+        freePacket(rxPacketHead);
+    
+    rxPacketHead = rxPacketTail = NULL;
+    rxPacketSize = 0;
 }

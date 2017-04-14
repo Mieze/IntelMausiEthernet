@@ -234,16 +234,12 @@ void IntelMausi::intelEnable()
         setCurrentMedium(selectedMedium);
     }
     
-#ifdef __PRIVATE_SPI__
     /* Check if we re waking up from sleep with WoL enabled and still have a valid link. */
     if (!linkOpts || !intelCheckLink(&adapterData)) {
         linkOpts = 0;
         setLinkStatus(kIONetworkLinkValid);
     }
     polling = false;
-#else
-    setLinkStatus(kIONetworkLinkValid);
-#endif /* __PRIVATE_SPI__ */
 
     intelSetupAdvForMedium(selectedMedium);
 
@@ -288,10 +284,8 @@ void IntelMausi::intelDisable()
     UInt32 ctrl, ctrlExt, rctl, status;
     int retval;
     
-#ifdef __PRIVATE_SPI__
     polling = false;
     linkOpts = 0;
-#endif /* __PRIVATE_SPI__ */
 
     /* Flush LPIC. */
     intelFlushLPIC();
@@ -342,10 +336,8 @@ void IntelMausi::intelDisable()
         }
         DebugLog("Ethernet [IntelMausi]: WUFC=0x%08x.\n", wufc);
         
-#ifdef __PRIVATE_SPI__
         linkOpts = kIONetworkLinkNoNetworkChange;
         linkStatus |= linkOpts;
-#endif /* __PRIVATE_SPI__ */
     } else {
         intelDown(&adapterData, true);
         intelWriteMem32(E1000_WUC, 0);
@@ -521,9 +513,11 @@ void IntelMausi::intelSetupRxControl(struct e1000_adapter *adapter)
 	/* Some systems expect that the CRC is included in SMBUS traffic. The
 	 * hardware strips the CRC before sending to both SMBUS (BMC) and to
 	 * host memory when this is enabled
+     *
+     * We setup hardware to always strip CRC as we want jumbo frame support
+     * anyway even if it breaks management SMBUS traffic on some machines.
 	 */
-	if (adapter->flags2 & FLAG2_CRC_STRIPPING)
-        rctl |= E1000_RCTL_SECRC;
+	rctl |= E1000_RCTL_SECRC;
     
 	/* Workaround Si errata on 82577 PHY - configure IPG for jumbos */
 	if ((hw->phy.type == e1000_phy_82577) && (rctl & E1000_RCTL_LPE)) {
@@ -598,21 +592,14 @@ void IntelMausi::intelConfigureRx(struct e1000_adapter *adapter)
 	intelWriteMem32(E1000_RXCSUM, rxcsum);
     
 	/* With jumbo frames, excessive C-state transition latencies result
-	 * in dropped transactions.
+	 * in dropped transactions. Latency requirements will be adjusted
+     * when the link has been established and speed is known.
 	 */
-	if (mtu > ETH_DATA_LEN) {
-		//u32 lat = ((intelReadMem32(E1000_PBA) & E1000_PBA_RXA_MASK) * 1024 - adapter->max_frame_size) * 8 / 1000;
-        
-		if (adapter->flags & FLAG_IS_ICH) {
-			u32 rxdctl = intelReadMem32(E1000_RXDCTL(0));
+	if ((mtu > ETH_DATA_LEN) && (adapter->flags & FLAG_IS_ICH)) {
+        u32 rxdctl = intelReadMem32(E1000_RXDCTL(0));
             
-			intelWriteMem32(E1000_RXDCTL(0), rxdctl | 0x3);
-		}
-        
-		//pm_qos_update_request(&adapter->netdev->pm_qos_req, lat);
-	} else {
-		//pm_qos_update_request(&adapter->netdev->pm_qos_req, PM_QOS_DEFAULT_VALUE);
-	}
+        intelWriteMem32(E1000_RXDCTL(0), rxdctl | 0x3);
+    }
 	intelWriteMem32(E1000_RCTL, rctl);
 }
 
@@ -1110,15 +1097,9 @@ void IntelMausi::intelSetupRssHash(struct e1000_adapter *adapter)
 void IntelMausi::intelRestart()
 {
     
-#ifdef __PRIVATE_SPI__
     /* Stop output thread and flush txQueue */
     netif->stopOutputThread();
     netif->flushOutputQueue();
-#else
-    /* Stop and cleanup txQueue. */
-    txQueue->stop();
-    txQueue->flush();
-#endif /* __PRIVATE_SPI__ */
 
     /*  Also set the link status to down. */
     if (linkUp)

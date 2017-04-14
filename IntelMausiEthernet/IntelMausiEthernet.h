@@ -97,10 +97,12 @@ enum {
 #define kRxDescSize    (kNumRxDesc*sizeof(union e1000_rx_desc_extended))
 
 /* This is the receive buffer size (must be large enough to hold a packet). */
-#define kRxBufferPktSize 2016
+#define kRxBufferPktSize 2048
 #define kRxNumSpareMbufs 100
 #define kMCFilterLimit 32
 #define kMaxRxQueques 1
+#define kMaxMtu 9000
+#define kMaxPacketSize (kMaxMtu + ETH_HLEN + ETH_FCS_LEN)
 
 /* statitics timer period in ms. */
 #define kTimeoutMS 1000
@@ -283,13 +285,9 @@ public:
 	virtual IOReturn enable(IONetworkInterface *netif);
 	virtual IOReturn disable(IONetworkInterface *netif);
 	
-#ifdef __PRIVATE_SPI__
     virtual IOReturn outputStart(IONetworkInterface *interface, IOOptionBits options );
     virtual IOReturn setInputPacketPollingEnable(IONetworkInterface *interface, bool enabled);
     virtual void pollInputPackets(IONetworkInterface *interface, uint32_t maxCount, IOMbufQueue *pollQueue, void *context);
-#else
-    virtual UInt32 outputPacket(mbuf_t m, void *param);
-#endif /* __PRIVATE_SPI__ */
 	
 	virtual void getPacketBufferConstraints(IOPacketBufferConstraints *constraints) const;
 	
@@ -316,7 +314,9 @@ public:
     virtual IOReturn getPacketFilters(const OSSymbol *group, UInt32 *filters) const;
     
     virtual UInt32 getFeatures() const;
-    
+    virtual IOReturn getMaxPacketSize(UInt32 * maxSize) const;
+    virtual IOReturn setMaxPacketSize(UInt32 maxSize);
+
 private:
     bool initPCIConfigSpace(IOPCIDevice *provider);
     void initPCIPowerManagment(IOPCIDevice *provider, const struct e1000_info *ei);
@@ -329,11 +329,7 @@ private:
     void interruptOccurred(OSObject *client, IOInterruptEventSource *src, int count);
     void txInterrupt();
     
-#ifdef __PRIVATE_SPI__
     UInt32 rxInterrupt(IONetworkInterface *interface, uint32_t maxCount, IOMbufQueue *pollQueue, void *context);
-#else
-    void rxInterrupt();
-#endif /* __PRIVATE_SPI__ */
 
     bool setupDMADescriptors();
     void freeDMADescriptors();
@@ -343,6 +339,9 @@ private:
     void setLinkUp();
     void setLinkDown();
     bool checkForDeadlock();
+    
+    /* Jumbo frame support methods */
+    void discardPacketFragment();
     
     /* Hardware specific methods */
     bool intelIdentifyChip();
@@ -429,6 +428,9 @@ private:
     IOPhysicalAddress64 rxPhyAddr;
     union e1000_rx_desc_extended *rxDescArray;
 	IOMbufNaturalMemoryCursor *rxMbufCursor;
+    mbuf_t rxPacketHead;
+    mbuf_t rxPacketTail;
+    UInt32 rxPacketSize;
     IOEthernetAddress *mcAddrList;
     UInt32 mcListCount;
     UInt16 rxNextDescIndex;
@@ -452,10 +454,8 @@ private:
     UInt8 pcieCapOffset;
     UInt8 pciPMCtrlOffset;
     
-#ifdef __PRIVATE_SPI__
     UInt32 linkOpts;
     IONetworkPacketPollingParameters pollParams;
-#endif /* __PRIVATE_SPI__ */
 
     /* flags */
     bool isEnabled;
@@ -463,11 +463,7 @@ private:
 	bool multicastMode;
     bool linkUp;
     
-#ifdef __PRIVATE_SPI__
     bool polling;
-#else
-    bool stalled;
-#endif /* __PRIVATE_SPI__ */
     
     bool forceReset;
     bool wolCapable;

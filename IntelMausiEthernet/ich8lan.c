@@ -309,7 +309,7 @@ static void e1000_toggle_lanphypc_pch_lpt(struct e1000_hw *hw)
  **/
 static s32 e1000_init_phy_workarounds_pchlan(struct e1000_hw *hw)
 {
-	struct e1000_adapter *adapter = hw->adapter;
+	//struct e1000_adapter *adapter = hw->adapter;
 	u32 mac_reg, fwsm = er32(FWSM);
 	s32 ret_val;
 
@@ -1052,7 +1052,7 @@ static s32 e1000_platform_pm_pch_lpt(struct e1000_hw *hw, bool link)
 
 		while (value > PCI_LTR_VALUE_MASK) {
 			scale++;
-			value = DIV_ROUND_UP(value, (1 << 5));
+			value = DIV_ROUND_UP(value, BIT(5));
 		}
 		if (scale > E1000_LTRV_SCALE_MAX) {
 			e_dbg("Invalid LTR latency scale %d\n", scale);
@@ -1060,14 +1060,14 @@ static s32 e1000_platform_pm_pch_lpt(struct e1000_hw *hw, bool link)
 		}
 		lat_enc = (u16)((scale << PCI_LTR_SCALE_SHIFT) | value);
 
-		/* Determine the maximum latency tolerated by the platform */
+        /* Determine the maximum latency tolerated by the platform */
         
 #if DISABLED_CODE
-
-		pci_read_config_word(hw->adapter->pdev, E1000_PCI_LTR_CAP_LPT,
-				     &max_snoop);
-		pci_read_config_word(hw->adapter->pdev,
-				     E1000_PCI_LTR_CAP_LPT + 2, &max_nosnoop);
+        
+        pci_read_config_word(hw->adapter->pdev, E1000_PCI_LTR_CAP_LPT,
+                             &max_snoop);
+        pci_read_config_word(hw->adapter->pdev,
+                             E1000_PCI_LTR_CAP_LPT + 2, &max_nosnoop);
         
 #else
         
@@ -1075,8 +1075,8 @@ static s32 e1000_platform_pm_pch_lpt(struct e1000_hw *hw, bool link)
         max_nosnoop = hw->adapter->pdev->maxNoSnoop;
         
 #endif /* DISABLED_CODE */
-
-        max_ltr_enc = max_t(u16, max_snoop, max_nosnoop);
+        
+		max_ltr_enc = max_t(u16, max_snoop, max_nosnoop);
 
 		if (lat_enc > max_ltr_enc)
 			lat_enc = max_ltr_enc;
@@ -1267,9 +1267,9 @@ static s32 e1000_disable_ulp_lpt_lp(struct e1000_hw *hw, bool force)
 			ew32(H2ME, mac_reg);
 		}
 
-		/* Poll up to 100msec for ME to clear ULP_CFG_DONE */
+		/* Poll up to 300msec for ME to clear ULP_CFG_DONE. */
 		while (er32(FWSM) & E1000_FWSM_ULP_CFG_DONE) {
-			if (i++ == 10) {
+			if (i++ == 30) {
 				ret_val = -E1000_ERR_PHY;
 				goto out;
 			}
@@ -1343,6 +1343,8 @@ static s32 e1000_disable_ulp_lpt_lp(struct e1000_hw *hw, bool force)
 		     I218_ULP_CONFIG1_RESET_TO_SMBUS |
 		     I218_ULP_CONFIG1_WOL_HOST |
 		     I218_ULP_CONFIG1_INBAND_EXIT |
+		     I218_ULP_CONFIG1_EN_ULP_LANPHYPC |
+		     I218_ULP_CONFIG1_DIS_CLR_STICKY_ON_PERST |
 		     I218_ULP_CONFIG1_DISABLE_SMB_PERST);
 	e1000_write_phy_reg_hv_locked(hw, I218_ULP_CONFIG1, phy_reg);
 
@@ -1448,6 +1450,18 @@ static s32 e1000_check_for_copper_link_ich8lan(struct e1000_hw *hw)
 			emi_addr = I217_RX_CONFIG;
 		ret_val = e1000_write_emi_reg_locked(hw, emi_addr, emi_val);
 
+		if (hw->mac.type == e1000_pch_lpt ||
+		    hw->mac.type == e1000_pch_spt) {
+			u16 phy_reg;
+
+			e1e_rphy_locked(hw, I217_PLL_CLOCK_GATE_REG, &phy_reg);
+			phy_reg &= ~I217_PLL_CLOCK_GATE_MASK;
+			if (speed == SPEED_100 || speed == SPEED_10)
+				phy_reg |= 0x3E8;
+			else
+				phy_reg |= 0xFA;
+			e1e_wphy_locked(hw, I217_PLL_CLOCK_GATE_REG, phy_reg);
+		}
 		hw->phy.ops.release(hw);
 
 		if (ret_val)
@@ -1482,6 +1496,18 @@ static s32 e1000_check_for_copper_link_ich8lan(struct e1000_hw *hw)
 				hw->phy.ops.release(hw);
 				if (ret_val)
 					return ret_val;
+			} else {
+				ret_val = hw->phy.ops.acquire(hw);
+				if (ret_val)
+					return ret_val;
+
+				ret_val = e1e_wphy_locked(hw,
+							  PHY_REG(776, 20),
+							  0xC023);
+				hw->phy.ops.release(hw);
+				if (ret_val)
+					return ret_val;
+
 			}
 		}
 	}
@@ -1562,7 +1588,7 @@ static s32 e1000_check_for_copper_link_ich8lan(struct e1000_hw *hw)
 		phy_reg &= ~HV_KMRN_FIFO_CTRLSTA_PREAMBLE_MASK;
 
 		if ((er32(STATUS) & E1000_STATUS_FD) != E1000_STATUS_FD)
-			phy_reg |= (1 << HV_KMRN_FIFO_CTRLSTA_PREAMBLE_SHIFT);
+			phy_reg |= BIT(HV_KMRN_FIFO_CTRLSTA_PREAMBLE_SHIFT);
 
 		e1e_wphy(hw, HV_KMRN_FIFO_CTRLSTA, phy_reg);
 		break;
@@ -1696,7 +1722,7 @@ static void e1000_release_nvm_ich8lan(struct e1000_hw __always_unused *hw)
  **/
 static s32 e1000_acquire_swflag_ich8lan(struct e1000_hw *hw)
 {
-	u32 extcnf_ctrl, timeout = PHY_CFG_TIMEOUT;
+	u32 extcnf_ctrl = 0, timeout = PHY_CFG_TIMEOUT;
 	s32 ret_val = 0;
 
 	if (test_and_set_bit(__E1000_ACCESS_SHARED_RESOURCE,
@@ -2033,9 +2059,9 @@ static s32 e1000_write_smbus_addr(struct e1000_hw *hw)
 		/* Restore SMBus frequency */
 		if (freq--) {
 			phy_data &= ~HV_SMB_ADDR_FREQ_MASK;
-			phy_data |= (freq & (1 << 0)) <<
+			phy_data |= (freq & BIT(0)) <<
 			    HV_SMB_ADDR_FREQ_LOW_SHIFT;
-			phy_data |= (freq & (1 << 1)) <<
+			phy_data |= (freq & BIT(1)) <<
 			    (HV_SMB_ADDR_FREQ_HIGH_SHIFT - 1);
 		} else {
 			e_dbg("Unsupported SMB frequency in PHY\n");
@@ -2519,7 +2545,7 @@ s32 e1000_lv_jumbo_workaround_ich8lan(struct e1000_hw *hw, bool enable)
 
 	/* disable Rx path while enabling/disabling workaround */
 	e1e_rphy(hw, PHY_REG(769, 20), &phy_reg);
-	ret_val = e1e_wphy(hw, PHY_REG(769, 20), phy_reg | (1 << 14));
+	ret_val = e1e_wphy(hw, PHY_REG(769, 20), phy_reg | BIT(14));
 	if (ret_val)
 		return ret_val;
 
@@ -2550,7 +2576,7 @@ s32 e1000_lv_jumbo_workaround_ich8lan(struct e1000_hw *hw, bool enable)
 
 		/* Enable jumbo frame workaround in the MAC */
 		mac_reg = er32(FFLT_DBG);
-		mac_reg &= ~(1 << 14);
+		mac_reg &= ~BIT(14);
 		mac_reg |= (7 << 15);
 		ew32(FFLT_DBG, mac_reg);
 
@@ -2565,7 +2591,7 @@ s32 e1000_lv_jumbo_workaround_ich8lan(struct e1000_hw *hw, bool enable)
 			return ret_val;
 		ret_val = e1000e_write_kmrn_reg(hw,
 						E1000_KMRNCTRLSTA_CTRL_OFFSET,
-						data | (1 << 0));
+						data | BIT(0));
 		if (ret_val)
 			return ret_val;
 		ret_val = e1000e_read_kmrn_reg(hw,
@@ -2589,7 +2615,7 @@ s32 e1000_lv_jumbo_workaround_ich8lan(struct e1000_hw *hw, bool enable)
 		if (ret_val)
 			return ret_val;
 		e1e_rphy(hw, PHY_REG(769, 16), &data);
-		data &= ~(1 << 13);
+		data &= ~BIT(13);
 		ret_val = e1e_wphy(hw, PHY_REG(769, 16), data);
 		if (ret_val)
 			return ret_val;
@@ -2603,7 +2629,7 @@ s32 e1000_lv_jumbo_workaround_ich8lan(struct e1000_hw *hw, bool enable)
 		if (ret_val)
 			return ret_val;
 		e1e_rphy(hw, HV_PM_CTRL, &data);
-		ret_val = e1e_wphy(hw, HV_PM_CTRL, data | (1 << 10));
+		ret_val = e1e_wphy(hw, HV_PM_CTRL, data | BIT(10));
 		if (ret_val)
 			return ret_val;
 	} else {
@@ -2623,7 +2649,7 @@ s32 e1000_lv_jumbo_workaround_ich8lan(struct e1000_hw *hw, bool enable)
 			return ret_val;
 		ret_val = e1000e_write_kmrn_reg(hw,
 						E1000_KMRNCTRLSTA_CTRL_OFFSET,
-						data & ~(1 << 0));
+						data & ~BIT(0));
 		if (ret_val)
 			return ret_val;
 		ret_val = e1000e_read_kmrn_reg(hw,
@@ -2646,7 +2672,7 @@ s32 e1000_lv_jumbo_workaround_ich8lan(struct e1000_hw *hw, bool enable)
 		if (ret_val)
 			return ret_val;
 		e1e_rphy(hw, PHY_REG(769, 16), &data);
-		data |= (1 << 13);
+		data |= BIT(13);
 		ret_val = e1e_wphy(hw, PHY_REG(769, 16), data);
 		if (ret_val)
 			return ret_val;
@@ -2660,13 +2686,13 @@ s32 e1000_lv_jumbo_workaround_ich8lan(struct e1000_hw *hw, bool enable)
 		if (ret_val)
 			return ret_val;
 		e1e_rphy(hw, HV_PM_CTRL, &data);
-		ret_val = e1e_wphy(hw, HV_PM_CTRL, data & ~(1 << 10));
+		ret_val = e1e_wphy(hw, HV_PM_CTRL, data & ~BIT(10));
 		if (ret_val)
 			return ret_val;
 	}
 
 	/* re-enable Rx path after enabling/disabling workaround */
-	return e1e_wphy(hw, PHY_REG(769, 20), phy_reg & ~(1 << 14));
+	return e1e_wphy(hw, PHY_REG(769, 20), phy_reg & ~BIT(14));
 }
 
 /**
@@ -4830,7 +4856,7 @@ static void e1000_initialize_hw_bits_ich8lan(struct e1000_hw *hw)
 
 	/* Extended Device Control */
 	reg = er32(CTRL_EXT);
-	reg |= (1 << 22);
+	reg |= BIT(22);
 	/* Enable PHY low-power state when MAC is at D3 w/o WoL */
 	if (hw->mac.type >= e1000_pchlan)
 		reg |= E1000_CTRL_EXT_PHYPDEN;
@@ -4838,34 +4864,34 @@ static void e1000_initialize_hw_bits_ich8lan(struct e1000_hw *hw)
 
 	/* Transmit Descriptor Control 0 */
 	reg = er32(TXDCTL(0));
-	reg |= (1 << 22);
+	reg |= BIT(22);
 	ew32(TXDCTL(0), reg);
 
 	/* Transmit Descriptor Control 1 */
 	reg = er32(TXDCTL(1));
-	reg |= (1 << 22);
+	reg |= BIT(22);
 	ew32(TXDCTL(1), reg);
 
 	/* Transmit Arbitration Control 0 */
 	reg = er32(TARC(0));
 	if (hw->mac.type == e1000_ich8lan)
-		reg |= (1 << 28) | (1 << 29);
-	reg |= (1 << 23) | (1 << 24) | (1 << 26) | (1 << 27);
+		reg |= BIT(28) | BIT(29);
+	reg |= BIT(23) | BIT(24) | BIT(26) | BIT(27);
 	ew32(TARC(0), reg);
 
 	/* Transmit Arbitration Control 1 */
 	reg = er32(TARC(1));
 	if (er32(TCTL) & E1000_TCTL_MULR)
-		reg &= ~(1 << 28);
+		reg &= ~BIT(28);
 	else
-		reg |= (1 << 28);
-	reg |= (1 << 24) | (1 << 26) | (1 << 30);
+		reg |= BIT(28);
+	reg |= BIT(24) | BIT(26) | BIT(30);
 	ew32(TARC(1), reg);
 
 	/* Device Status */
 	if (hw->mac.type == e1000_ich8lan) {
 		reg = er32(STATUS);
-		reg &= ~(1 << 31);
+		reg &= ~BIT(31);
 		ew32(STATUS, reg);
 	}
 
@@ -5874,7 +5900,8 @@ const struct e1000_info e1000_pch_lpt_info = {
 				  | FLAG_HAS_JUMBO_FRAMES
 				  | FLAG_APME_IN_WUC,
 	.flags2			= FLAG2_HAS_PHY_STATS
-				  | FLAG2_HAS_EEE,
+				  | FLAG2_HAS_EEE
+				  | FLAG2_CHECK_SYSTIM_OVERFLOW,
 	.pba			= 26,
 	.max_hw_frame_size	= 9022,
 	.get_variants		= e1000_get_variants_ich8lan,
