@@ -403,7 +403,7 @@
 				GCC_PREFIX_HEADER = "IntelMausiEthernet/IntelMausiEthernetV2-Prefix.pch";
 				INFOPLIST_FILE = "IntelMausiEthernet/IntelMausiEthernet-Info.plist";
 				MODULE_NAME = com.insanelymac.IntelMausiEthernet;
-				MODULE_VERSION = 2.3.0;
+				MODULE_VERSION = 2.4.0d0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.insanelymac.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = IntelMausiEthernet;
 				SDKROOT = macosx;
@@ -427,7 +427,7 @@
 				GCC_PREFIX_HEADER = "IntelMausiEthernet/IntelMausiEthernetV2-Prefix.pch";
 				INFOPLIST_FILE = "IntelMausiEthernet/IntelMausiEthernet-Info.plist";
 				MODULE_NAME = com.insanelymac.IntelMausiEthernet;
-				MODULE_VERSION = 2.3.0;
+				MODULE_VERSION = 2.4.0d0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.insanelymac.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = IntelMausiEthernet;
 				SDKROOT = macosx;

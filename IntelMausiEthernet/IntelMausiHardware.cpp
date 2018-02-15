@@ -39,7 +39,7 @@ bool IntelMausi::initPCIConfigSpace(IOPCIDevice *provider)
     if (!intelIdentifyChip())
         goto done;
     
-    if ((chipType == board_pch_lpt) || (chipType == board_pch_spt)) {
+    if (chipType >= board_pch_lpt) {
         pciDeviceData.maxSnoop = provider->extendedConfigRead16(E1000_PCI_LTR_CAP_LPT);
         pciDeviceData.maxNoSnoop = provider->extendedConfigRead16(E1000_PCI_LTR_CAP_LPT + 2);
         
@@ -345,7 +345,7 @@ void IntelMausi::intelDisable()
         intelPowerDownPhy(&adapterData);
 
         /* ULP seems to cause trouble on I218LM3 and I218V3. Enable it only for I219V/LM. */
-        if (hw->mac.type == e1000_pch_spt) {
+        if (hw->mac.type >= e1000_pch_spt) {
             if (!(wufc & (E1000_WUFC_EX | E1000_WUFC_MC | E1000_WUFC_BC)))
             /* ULP does not support wake from unicast, multicast
              * or broadcast.
@@ -432,7 +432,7 @@ void IntelMausi::intelConfigureTx(struct e1000_adapter *adapter)
     txdctl = intelReadMem32(E1000_TXDCTL(0));
 
     /* Fix TXDCTL to disable descriptor prefetch for 82579, I217, I218 and I219. */
-    if ((chipType == board_pch_spt) || (chipType == board_pch_lpt) || (chipType == board_pch2lan)) {
+    if (chipType >= board_pch2lan) {
         txdctl = 0x01410000;
         intelWriteMem32(E1000_TXDCTL(0), txdctl);
     }
@@ -465,8 +465,14 @@ void IntelMausi::intelConfigureTx(struct e1000_adapter *adapter)
         val |= E1000_RCTL_RDMTS_HEX;
         intelWriteMem32(E1000_IOSFPC, val);
         
+        /*
+         * SPT and KBL Si errata workaround to avoid Tx hang.
+         * Dropping the number of outstanding requests from
+         * 3 to 2 in order to avoid a buffer overrun.
+         */
         val = intelReadMem32(E1000_TARC(0));
         val &= ~E1000_TARC0_CB_MULTIQ_3_REQ;
+        val |= E1000_TARC0_CB_MULTIQ_2_REQ;
         intelWriteMem32(E1000_TARC(0), val);
     }
 }
@@ -644,12 +650,12 @@ void IntelMausi::intelDown(struct e1000_adapter *adapter, bool reset)
     
 	if (reset)
 		intelReset(adapter);
-    else if (hw->mac.type == e1000_pch_spt)
+    else if (hw->mac.type >= e1000_pch_spt)
         intelFlushDescRings(adapter);
     
     clearDescriptors();
     
-    if ((chipType == board_pch_lpt) || (chipType == board_pch_spt))
+    if (chipType >= board_pch_lpt)
         requireMaxBusStall(0);
 }
 
@@ -825,6 +831,7 @@ void IntelMausi::intelReset(struct e1000_adapter *adapter)
         case e1000_pch2lan:
         case e1000_pch_lpt:
         case e1000_pch_spt:
+        case e1000_pch_cnp:
             fc->refresh_time = 0x0400;
             
             if (mtu <= ETH_DATA_LEN) {
@@ -852,7 +859,7 @@ void IntelMausi::intelReset(struct e1000_adapter *adapter)
     /* Set interrupt throttle value. */
     intelWriteMem32(E1000_ITR, intrThrValue);
     
-    if (hw->mac.type == e1000_pch_spt)
+    if (hw->mac.type >= e1000_pch_spt)
         intelFlushDescRings(adapter);
 
 	/* Allow time for pending master requests to run */

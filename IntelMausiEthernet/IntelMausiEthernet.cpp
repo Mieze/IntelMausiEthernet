@@ -81,6 +81,15 @@ static const struct intelDevice deviceTable[] = {
     { .pciDevId = E1000_DEV_ID_PCH_SPT_I219_V4, .device = board_pch_spt, .deviceName = "I219V4", .deviceInfo = &e1000_pch_spt_info },
     { .pciDevId = E1000_DEV_ID_PCH_SPT_I219_LM5, .device = board_pch_spt, .deviceName = "I219LM5", .deviceInfo = &e1000_pch_spt_info },
     { .pciDevId = E1000_DEV_ID_PCH_SPT_I219_V5, .device = board_pch_spt, .deviceName = "I219V5", .deviceInfo = &e1000_pch_spt_info },
+    { .pciDevId = E1000_DEV_ID_PCH_CNP_I219_LM6, .device = board_pch_cnp, .deviceName = "I219LM6", .deviceInfo = &e1000_pch_cnp_info },
+    { .pciDevId = E1000_DEV_ID_PCH_CNP_I219_V6, .device = board_pch_cnp, .deviceName = "I219V6", .deviceInfo = &e1000_pch_cnp_info },
+    { .pciDevId = E1000_DEV_ID_PCH_CNP_I219_LM7, .device = board_pch_cnp, .deviceName = "I219LM7", .deviceInfo = &e1000_pch_cnp_info },
+    { .pciDevId = E1000_DEV_ID_PCH_CNP_I219_V7, .device = board_pch_cnp, .deviceName = "I219V7", .deviceInfo = &e1000_pch_cnp_info },
+    { .pciDevId = E1000_DEV_ID_PCH_ICP_I219_LM8, .device = board_pch_cnp, .deviceName = "I219LM8", .deviceInfo = &e1000_pch_cnp_info },
+    { .pciDevId = E1000_DEV_ID_PCH_ICP_I219_V8, .device = board_pch_cnp, .deviceName = "I219V8", .deviceInfo = &e1000_pch_cnp_info },
+    { .pciDevId = E1000_DEV_ID_PCH_ICP_I219_LM9, .device = board_pch_cnp, .deviceName = "I219LM9", .deviceInfo = &e1000_pch_cnp_info },
+    { .pciDevId = E1000_DEV_ID_PCH_ICP_I219_V9, .device = board_pch_cnp, .deviceName = "I219V9", .deviceInfo = &e1000_pch_cnp_info },
+
     /* end of table */
     { .pciDevId = 0, .device = 0, .deviceName = NULL, .deviceInfo = NULL }
 };
@@ -1321,7 +1330,7 @@ void IntelMausi::interruptOccurred(OSObject *client, IOInterruptEventSource *src
         }
     }
 	/* Reset on uncorrectable ECC error */
-    if ((icr & E1000_ICR_ECCER) && ((hw->mac.type == e1000_pch_lpt) || (hw->mac.type == e1000_pch_spt))) {
+    if ((icr & E1000_ICR_ECCER) && (hw->mac.type >= e1000_pch_lpt)) {
         UInt32 pbeccsts = intelReadMem32(E1000_PBECCSTS);
 
         etherStats->dot3StatsEntry.internalMacReceiveErrors += (pbeccsts & E1000_PBECCSTS_UNCORR_ERR_CNT_MASK) >>E1000_PBECCSTS_UNCORR_ERR_CNT_SHIFT;
@@ -1542,7 +1551,7 @@ void IntelMausi::setLinkUp()
     netif->startOutputThread();
     IOLog("Ethernet [IntelMausi]: Link up on en%u, %s, %s, %s%s\n", netif->getUnitNumber(), speedName, duplexName, flowName, eeeName);
 
-    if ((chipType == board_pch_lpt) || (chipType == board_pch_spt))
+    if (chipType >= board_pch_lpt)
         setMaxLatency(adapterData.link_speed);
     
     DebugLog("Ethernet [IntelMausi]: CTRL=0x%08x\n", intelReadMem32(E1000_CTRL));
