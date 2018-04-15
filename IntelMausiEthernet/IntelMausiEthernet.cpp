@@ -1580,7 +1580,8 @@ void IntelMausi::setLinkUp()
     DebugLog("Ethernet [IntelMausi]: MANC=0x%08x\n", intelReadMem32(E1000_MANC));
     DebugLog("Ethernet [IntelMausi]: MANC2H=0x%08x\n", intelReadMem32(E1000_MANC2H));
     DebugLog("Ethernet [IntelMausi]: LTRV=0x%08x\n", intelReadMem32(E1000_LTRV));
-    DebugLog("Ethernet [IntelMausi]: PBA=0x%08x\n", intelReadMem32(E1000_PBA));
+    DebugLog("Ethernet [IntelMausi]: FWSM=0x%08x\n", intelReadMem32(E1000_FWSM));
+    DebugLog("Ethernet [IntelMausi]: SWSM2=0x%08x\n", intelReadMem32(E1000_SWSM2));
 }
 
 void IntelMausi::setLinkDown()
@@ -1969,8 +1970,12 @@ bool IntelMausi::checkForDeadlock()
         if (++deadlockWarn >= kTxDeadlockTreshhold) {
             mbuf_t m = txBufArray[txDirtyIndex].mbuf;
             UInt32 pktSize;
-            UInt16 i, index;
+            UInt16 index;
+            
+#ifdef DEBUG
+            UInt16 i;
             UInt16 stalledIndex = txDirtyIndex;
+#endif
             //UInt8 data;
             
             IOLog("Ethernet [IntelMausi]: Tx stalled? Resetting chipset. txDirtyDescIndex=%u, STATUS=0x%08x, TCTL=0x%08x.\n", txDirtyIndex, intelReadMem32(E1000_STATUS), intelReadMem32(E1000_TCTL));
