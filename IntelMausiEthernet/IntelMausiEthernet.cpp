@@ -278,9 +278,14 @@ bool IntelMausi::start(IOService *provider)
     }
     commandGate->retain();
     
+    if (!setupDMADescriptors()) {
+        IOLog("Ethernet [IntelMausi]: Error allocating DMA descriptors.\n");
+        goto error3;
+    }
+
     if (!initEventSources(provider)) {
         IOLog("Ethernet [IntelMausi]: initEventSources() failed.\n");
-        goto error3;
+        goto error4;
     }
     
     result = attachInterface(reinterpret_cast<IONetworkInterface**>(&netif));
@@ -294,6 +299,9 @@ bool IntelMausi::start(IOService *provider)
     
 done:
     return result;
+    
+error4:
+    freeDMADescriptors();
     
 error3:
     RELEASE(commandGate);
@@ -310,8 +318,13 @@ error1:
 void IntelMausi::stop(IOService *provider)
 {
     UInt32 i;
-        
+    
     if (netif) {
+        /*
+         * Let the firmware know that the network interface is now closed.
+         */
+        e1000e_release_hw_control(&adapterData);
+
         detachInterface(netif);
         netif = NULL;
     }
@@ -400,11 +413,10 @@ void IntelMausi::systemWillShutdown(IOOptionBits specifier)
         /* Restore the original MAC address. */
         adapterData.hw.mac.ops.rar_set(&adapterData.hw, adapterData.hw.mac.perm_addr, 0);
         
-        /* If AMT is enabled, let the firmware know that the network
-         * interface is now closed
+        /*
+         * Let the firmware know that the network interface is now closed
          */
-        if ((adapterData.flags & FLAG_HAS_AMT))
-            e1000e_release_hw_control(&adapterData);
+        e1000e_release_hw_control(&adapterData);
     }
     
     DebugLog("systemWillShutdown() <===\n");
@@ -432,13 +444,9 @@ IOReturn IntelMausi::enable(IONetworkInterface *netif)
     }
     pciDevice->open(this);
     
-    if (!setupDMADescriptors()) {
-        IOLog("Ethernet [IntelMausi]: Error allocating DMA descriptors.\n");
-        goto done;
-    }
     intelEnable();
     
-    /* In case we are using an msi the interrupt hasn't been enabled by start(). */
+    /* As we are using an msi the interrupt hasn't been enabled by start(). */
     interruptSource->enable();
     
     rxPacketHead = rxPacketTail = NULL;
@@ -480,7 +488,7 @@ IOReturn IntelMausi::disable(IONetworkInterface *netif)
     timerSource->cancelTimeout();
     txDescDoneCount = txDescDoneLast = 0;
     
-    /* In case we are using msi disable the interrupt. */
+    /* We are using MSI so that we have to disable the interrupt. */
     interruptSource->disable();
     
     intelDisable();
@@ -492,8 +500,6 @@ IOReturn IntelMausi::disable(IONetworkInterface *netif)
     }
     if (pciDevice && pciDevice->isOpen())
         pciDevice->close(this);
-    
-    freeDMADescriptors();
     
     DebugLog("disable() <===\n");
     
@@ -1353,14 +1359,15 @@ IOReturn IntelMausi::setInputPacketPollingEnable(IONetworkInterface *interface, 
 {
     //DebugLog("setInputPacketPollingEnable() ===>\n");
     
-    if (enabled) {
-        intelWriteMem32(E1000_IMC, ~(E1000_ICR_LSC | E1000_IMS_RXSEQ));
-        intelFlush();
-    } else {
-        intelEnableIRQ(intrMask);
+    if (isEnabled) {
+        if (enabled) {
+            intelWriteMem32(E1000_IMC, ~(E1000_ICR_LSC | E1000_IMS_RXSEQ));
+            intelFlush();
+        } else {
+            intelEnableIRQ(intrMask);
+        }
+        polling = enabled;
     }
-    polling = enabled;
-    
     //DebugLog("input polling %s.\n", enabled ? "enabled" : "disabled");
     
     //DebugLog("setInputPacketPollingEnable() <===\n");
@@ -1372,10 +1379,12 @@ void IntelMausi::pollInputPackets(IONetworkInterface *interface, uint32_t maxCou
 {
     //DebugLog("pollInputPackets() ===>\n");
     
-    rxInterrupt(interface, maxCount, pollQueue, context);
-    
-    /* Finally cleanup the transmitter ring. */
-    txInterrupt();
+    if (polling) {
+        rxInterrupt(interface, maxCount, pollQueue, context);
+        
+        /* Finally cleanup the transmitter ring. */
+        txInterrupt();
+    }
     
     //DebugLog("pollInputPackets() <===\n");
 }
@@ -1814,12 +1823,10 @@ bool IntelMausi::intelStart()
 	/* reset the hardware with the new settings */
 	intelReset(&adapterData);
     
-	/* If the controller has AMT, do not set DRV_LOAD until the interface
-	 * is up.  For all other cases, let the f/w know that the h/w is now
-	 * under the control of the driver.
+	/* Let the f/w know that the h/w is now under the control of the driver
+     * even in case the device has AMT in order to avoid problems after wakeup.
 	 */
-	if (!(adapterData.flags & FLAG_HAS_AMT))
-		e1000e_get_hw_control(&adapterData);
+	e1000e_get_hw_control(&adapterData);
         
     intrMask = IMS_ENABLE_MASK;
     

@@ -250,12 +250,6 @@ void IntelMausi::intelEnable()
     
     e1000e_power_up_phy(&adapterData);
     
-    /* If AMT is enabled, let the firmware know that the network
-	 * interface is now open and reset the part to a known state.
-	 */
-	if (adapterData.flags & FLAG_HAS_AMT) {
-		e1000e_get_hw_control(&adapterData);
-	}
     intelReset(&adapterData);
     
 #if DISABLED_CODE
@@ -379,12 +373,6 @@ void IntelMausi::intelDisable()
         }
         hw->phy.ops.release(hw);
     }
-
-    /* If AMT is enabled, let the firmware know that the network
-     * interface is now closed
-     */
-    if (adapterData.flags & FLAG_HAS_AMT)
-        e1000e_release_hw_control(&adapterData);
     
     if (linkUp) {
         linkUp = false;
@@ -864,12 +852,6 @@ void IntelMausi::intelReset(struct e1000_adapter *adapter)
 
 	/* Allow time for pending master requests to run */
 	mac->ops.reset_hw(hw);
-    
-	/* For parts with AMT enabled, let the firmware know
-	 * that the network interface is in control
-	 */
-	if (adapter->flags & FLAG_HAS_AMT)
-		e1000e_get_hw_control(adapter);
     
 	intelWriteMem32(E1000_WUC, 0);
     
