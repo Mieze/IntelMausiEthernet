@@ -49,6 +49,10 @@
 		D36B90E51C41BF0B00C1EB37 /* phy.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = phy.h; sourceTree = "<group>"; };
 		D36B90E61C41BF0B00C1EB37 /* ptp.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = ptp.c; sourceTree = "<group>"; };
 		D36B90E71C41BF0B00C1EB37 /* regs.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = regs.h; sourceTree = "<group>"; };
+		D38D864D2443A69F00D94935 /* kpi_interface.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = kpi_interface.h; sourceTree = "<group>"; };
+		D38D864E2443A6D700D94935 /* kpi_mbuf.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = kpi_mbuf.h; sourceTree = "<group>"; };
+		D38D864F2443A77200D94935 /* IOEthernetInterface.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOEthernetInterface.h; sourceTree = "<group>"; };
+		D38D86502443A77200D94935 /* IOEthernetController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOEthernetController.h; sourceTree = "<group>"; };
 		D3CB5B7A1A4394A800A37FAA /* Kernel.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kernel.framework; path = System/Library/Frameworks/Kernel.framework; sourceTree = SDKROOT; };
 		D3CB5B7D1A4394A800A37FAA /* IntelMausiEthernet-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "IntelMausiEthernet-Info.plist"; sourceTree = "<group>"; };
 		D3CB5B811A4394A800A37FAA /* IntelMausiEthernet.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IntelMausiEthernet.h; sourceTree = "<group>"; };
@@ -186,8 +190,12 @@
 		D3F3189C1AB3B0CB00DA9D9A /* Apple Headers */ = {
 			isa = PBXGroup;
 			children = (
+				D38D86502443A77200D94935 /* IOEthernetController.h */,
+				D38D864F2443A77200D94935 /* IOEthernetInterface.h */,
 				D3F318C61AB3B57D00DA9D9A /* IONetworkController.h */,
 				D3F318C71AB3B57D00DA9D9A /* IONetworkInterface.h */,
+				D38D864D2443A69F00D94935 /* kpi_interface.h */,
+				D38D864E2443A6D700D94935 /* kpi_mbuf.h */,
 			);
 			name = "Apple Headers";
 			sourceTree = "<group>";
@@ -240,7 +248,7 @@
 		D3CB5B6C1A4394A800A37FAA /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 1030;
+				LastUpgradeCheck = 1140;
 				ORGANIZATIONNAME = "Laura Müller";
 			};
 			buildConfigurationList = D3CB5B6F1A4394A800A37FAA /* Build configuration list for PBXProject "IntelMausiEthernet" */;
@@ -249,6 +257,7 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
+				Base,
 			);
 			mainGroup = D3CB5B6B1A4394A800A37FAA;
 			productRefGroup = D3CB5B771A4394A800A37FAA /* Products */;
@@ -412,15 +421,16 @@
 				CLANG_ENABLE_OBJC_ARC = NO;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = $MODULE_VERSION;
+				CURRENT_PROJECT_VERSION = 2.5.1d1;
 				GCC_CW_ASM_SYNTAX = NO;
 				GCC_ENABLE_OBJC_EXCEPTIONS = NO;
 				GCC_LINK_WITH_DYNAMIC_LIBRARIES = NO;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "IntelMausiEthernet/IntelMausiEthernetV2-Prefix.pch";
 				INFOPLIST_FILE = "IntelMausiEthernet/IntelMausiEthernet-Info.plist";
+				MARKETING_VERSION = 2.5.1d1;
 				MODULE_NAME = com.insanelymac.IntelMausiEthernet;
-				MODULE_VERSION = 2.5.0;
+				MODULE_VERSION = 2.5.1d0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.insanelymac.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = IntelMausiEthernet;
 				SDKROOT = macosx;
@@ -437,15 +447,16 @@
 				CLANG_ENABLE_OBJC_ARC = NO;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = $MODULE_VERSION;
+				CURRENT_PROJECT_VERSION = 2.5.1d1;
 				GCC_CW_ASM_SYNTAX = NO;
 				GCC_ENABLE_OBJC_EXCEPTIONS = NO;
 				GCC_LINK_WITH_DYNAMIC_LIBRARIES = NO;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "IntelMausiEthernet/IntelMausiEthernetV2-Prefix.pch";
 				INFOPLIST_FILE = "IntelMausiEthernet/IntelMausiEthernet-Info.plist";
+				MARKETING_VERSION = 2.5.1d1;
 				MODULE_NAME = com.insanelymac.IntelMausiEthernet;
-				MODULE_VERSION = 2.5.0;
+				MODULE_VERSION = 2.5.1d0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.insanelymac.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = IntelMausiEthernet;
 				SDKROOT = macosx;
