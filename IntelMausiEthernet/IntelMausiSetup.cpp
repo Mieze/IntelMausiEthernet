@@ -63,8 +63,6 @@ void IntelMausi::getParams()
     OSDictionary *params;
     OSString *versionString;
     OSNumber *num;
-    OSBoolean *tso4;
-    OSBoolean *tso6;
     OSBoolean *csoV6;
     UInt32 newIntrRate10;
     UInt32 newIntrRate100;
@@ -75,20 +73,10 @@ void IntelMausi::getParams()
     params = OSDynamicCast(OSDictionary, getProperty(kParamName));
     
     if (params) {
-        tso4 = OSDynamicCast(OSBoolean, params->getObject(kEnableTSO4Name));
-        enableTSO4 = (tso4) ? tso4->getValue() : false;
-        
-        IOLog("Ethernet [IntelMausi]: TCP/IPv4 segmentation offload %s.\n", enableTSO4 ? onName : offName);
-        
-        tso6 = OSDynamicCast(OSBoolean, params->getObject(kEnableTSO6Name));
-        enableTSO6 = (tso6) ? tso6->getValue() : false;
-        
-        IOLog("Ethernet [IntelMausi]: TCP/IPv6 segmentation offload %s.\n", enableTSO6 ? onName : offName);
-        
         csoV6 = OSDynamicCast(OSBoolean, params->getObject(kEnableCSO6Name));
         enableCSO6 = (csoV6) ? csoV6->getValue() : false;
         
-        IOLog("Ethernet [IntelMausi]: TCP/IPv6 checksum offload %s.\n", enableCSO6 ? onName : offName);
+        IOLog("[IntelMausi]: TCP/IPv6 checksum offload %s.\n", enableCSO6 ? onName : offName);
         
         /* Get maximum interrupt rate for 10M. */
         num = OSDynamicCast(OSNumber, params->getObject(kIntrRate10Name));
@@ -201,8 +189,6 @@ void IntelMausi::getParams()
         }
     } else {
         /* Use default values in case of missing config data. */
-        enableTSO4 = false;
-        enableTSO6 = false;
         enableCSO6 = false;
         newIntrRate10 = 3000;
         newIntrRate100 = 5000;
@@ -218,12 +204,12 @@ void IntelMausi::getParams()
         rxDelayTime1000 = 0;
     }
     
-    DebugLog("Ethernet [IntelMausi]: rxAbsTime10=%u, rxAbsTime100=%u, rxAbsTime1000=%u, rxDelayTime10=%u, rxDelayTime100=%u, rxDelayTime1000=%u. \n", rxAbsTime10, rxAbsTime100, rxAbsTime1000, rxDelayTime10, rxDelayTime100, rxDelayTime1000);
+    DebugLog("[IntelMausi]: rxAbsTime10=%u, rxAbsTime100=%u, rxAbsTime1000=%u, rxDelayTime10=%u, rxDelayTime100=%u, rxDelayTime1000=%u. \n", rxAbsTime10, rxAbsTime100, rxAbsTime1000, rxDelayTime10, rxDelayTime100, rxDelayTime1000);
     
     if (versionString)
-        IOLog("Ethernet [IntelMausi]: Version %s using max interrupt rates [%u; %u; %u]. Please don't support tonymacx86.com!\n", versionString->getCStringNoCopy(), newIntrRate10, newIntrRate100, newIntrRate1000);
+        IOLog("[IntelMausi]: Version %s using max interrupt rates [%u; %u; %u]. Please don't support tonymacx86.com!\n", versionString->getCStringNoCopy(), newIntrRate10, newIntrRate100, newIntrRate1000);
     else
-        IOLog("Ethernet [IntelMausi]: Using max interrupt rates [%u; %u; %u. Please don't support tonymacx86.com!\n", intrThrValue10, intrThrValue100, intrThrValue1000);
+        IOLog("[IntelMausi]: Using max interrupt rates [%u; %u; %u. Please don't support tonymacx86.com!\n", intrThrValue10, intrThrValue100, intrThrValue1000);
 }
 
 bool IntelMausi::setupMediumDict()
@@ -267,7 +253,7 @@ done:
     return result;
     
 error1:
-    IOLog("Ethernet [IntelMausi]: Error creating medium dictionary.\n");
+    IOLog("[IntelMausi]: Error creating medium dictionary.\n");
     mediumDict->release();
     
     for (i = MEDIUM_INDEX_AUTO; i < MEDIUM_INDEX_COUNT; i++)
@@ -287,7 +273,7 @@ bool IntelMausi::initEventSources(IOService *provider)
     txQueue = reinterpret_cast<IOBasicOutputQueue *>(getOutputQueue());
     
     if (txQueue == NULL) {
-        IOLog("Ethernet [IntelMausi]: Failed to get output queue.\n");
+        IOLog("[IntelMausi]: Failed to get output queue.\n");
         goto done;
     }
     txQueue->retain();
@@ -300,12 +286,12 @@ bool IntelMausi::initEventSources(IOService *provider)
         intrIndex++;
     }
     if (msiIndex != -1) {
-        DebugLog("Ethernet [IntelMausi]: MSI interrupt index: %d\n", msiIndex);
+        DebugLog("[IntelMausi]: MSI interrupt index: %d\n", msiIndex);
         
         interruptSource = IOInterruptEventSource::interruptEventSource(this, OSMemberFunctionCast(IOInterruptEventSource::Action, this, &IntelMausi::interruptOccurred), provider, msiIndex);
     }
     if (!interruptSource) {
-        IOLog("Ethernet [IntelMausi]: MSI interrupt could not be enabled.\n");
+        IOLog("[IntelMausi]: MSI interrupt could not be enabled.\n");
         goto error1;
     }
     workLoop->addEventSource(interruptSource);
@@ -313,7 +299,7 @@ bool IntelMausi::initEventSources(IOService *provider)
     timerSource = IOTimerEventSource::timerEventSource(this, OSMemberFunctionCast(IOTimerEventSource::Action, this, &IntelMausi::timerAction));
     
     if (!timerSource) {
-        IOLog("Ethernet [IntelMausi]: Failed to create IOTimerEventSource.\n");
+        IOLog("[IntelMausi]: Failed to create IOTimerEventSource.\n");
         goto error2;
     }
     workLoop->addEventSource(timerSource);
@@ -328,7 +314,7 @@ error2:
     RELEASE(interruptSource);
     
 error1:
-    IOLog("Ethernet [IntelMausi]: Error initializing event sources.\n");
+    IOLog("[IntelMausi]: Error initializing event sources.\n");
     txQueue->release();
     txQueue = NULL;
     goto done;
@@ -350,11 +336,11 @@ bool IntelMausi::setupDMADescriptors()
     txBufDesc = IOBufferMemoryDescriptor::inTaskWithPhysicalMask(kernel_task, (kIODirectionInOut | kIOMemoryPhysicallyContiguous | kIOMapInhibitCache), kTxDescSize, 0xFFFFFFFFFFFFF000ULL);
     
     if (!txBufDesc) {
-        IOLog("Ethernet [IntelMausi]: Couldn't alloc txBufDesc.\n");
+        IOLog("[IntelMausi]: Couldn't alloc txBufDesc.\n");
         goto done;
     }
     if (txBufDesc->prepare() != kIOReturnSuccess) {
-        IOLog("Ethernet [IntelMausi]: txBufDesc->prepare() failed.\n");
+        IOLog("[IntelMausi]: txBufDesc->prepare() failed.\n");
         goto error1;
     }
     txDescArray = (struct e1000_data_desc *)txBufDesc->getBytesNoCopy();
@@ -363,17 +349,17 @@ bool IntelMausi::setupDMADescriptors()
     txDescDmaCmd = IODMACommand::withSpecification(kIODMACommandOutputHost64, 64, 0, IODMACommand::kMapped, 0, 1);
     
     if (!txDescDmaCmd) {
-        IOLog("Ethernet [IntelMausi]: Couldn't alloc txDescDmaCmd.\n");
+        IOLog("[IntelMausi]: Couldn't alloc txDescDmaCmd.\n");
         goto error2;
     }
     
     if (txDescDmaCmd->setMemoryDescriptor(txBufDesc) != kIOReturnSuccess) {
-        IOLog("Ethernet [IntelMausi]: setMemoryDescriptor() failed.\n");
+        IOLog("[IntelMausi]: setMemoryDescriptor() failed.\n");
         goto error3;
     }
     
     if (txDescDmaCmd->gen64IOVMSegments(&offset, &seg, &numSegs) != kIOReturnSuccess) {
-        IOLog("Ethernet [IntelMausi]: gen64IOVMSegments() failed.\n");
+        IOLog("[IntelMausi]: gen64IOVMSegments() failed.\n");
         goto error4;
     }
     /* Now get tx ring's physical address. */
@@ -392,7 +378,7 @@ bool IntelMausi::setupDMADescriptors()
     txMbufCursor = IOMbufNaturalMemoryCursor::withSpecification(0x4000, kMaxSegs);
     
     if (!txMbufCursor) {
-        IOLog("Ethernet [IntelMausi]: Couldn't create txMbufCursor.\n");
+        IOLog("[IntelMausi]: Couldn't create txMbufCursor.\n");
         goto error4;
     }
     
@@ -400,12 +386,12 @@ bool IntelMausi::setupDMADescriptors()
     rxBufDesc = IOBufferMemoryDescriptor::inTaskWithPhysicalMask(kernel_task, (kIODirectionInOut | kIOMemoryPhysicallyContiguous | kIOMapInhibitCache), kRxDescSize, 0xFFFFFFFFFFFFF000ULL);
     
     if (!rxBufDesc) {
-        IOLog("Ethernet [IntelMausi]: Couldn't alloc rxBufDesc.\n");
+        IOLog("[IntelMausi]: Couldn't alloc rxBufDesc.\n");
         goto error5;
     }
     
     if (rxBufDesc->prepare() != kIOReturnSuccess) {
-        IOLog("Ethernet [IntelMausi]: rxBufDesc->prepare() failed.\n");
+        IOLog("[IntelMausi]: rxBufDesc->prepare() failed.\n");
         goto error6;
     }
     rxDescArray = (union e1000_rx_desc_extended *)rxBufDesc->getBytesNoCopy();
@@ -414,19 +400,19 @@ bool IntelMausi::setupDMADescriptors()
     rxDescDmaCmd = IODMACommand::withSpecification(kIODMACommandOutputHost64, 64, 0, IODMACommand::kMapped, 0, 1);
     
     if (!rxDescDmaCmd) {
-        IOLog("Ethernet [IntelMausi]: Couldn't alloc rxDescDmaCmd.\n");
+        IOLog("[IntelMausi]: Couldn't alloc rxDescDmaCmd.\n");
         goto error7;
     }
     
     if (rxDescDmaCmd->setMemoryDescriptor(rxBufDesc) != kIOReturnSuccess) {
-        IOLog("Ethernet [IntelMausi]: setMemoryDescriptor() failed.\n");
+        IOLog("[IntelMausi]: setMemoryDescriptor() failed.\n");
         goto error8;
     }
     offset = 0;
     numSegs = 1;
     
     if (rxDescDmaCmd->gen64IOVMSegments(&offset, &seg, &numSegs) != kIOReturnSuccess) {
-        IOLog("Ethernet [IntelMausi]: gen64IOVMSegments() failed.\n");
+        IOLog("[IntelMausi]: gen64IOVMSegments() failed.\n");
         goto error9;
     }
     /* And the rx ring's physical address too. */
@@ -444,7 +430,7 @@ bool IntelMausi::setupDMADescriptors()
     rxMbufCursor = IOMbufNaturalMemoryCursor::withSpecification(PAGE_SIZE, 1);
     
     if (!rxMbufCursor) {
-        IOLog("Ethernet [IntelMausi]: Couldn't create rxMbufCursor.\n");
+        IOLog("[IntelMausi]: Couldn't create rxMbufCursor.\n");
         goto error9;
     }
     /* Alloc receive buffers. */
@@ -452,7 +438,7 @@ bool IntelMausi::setupDMADescriptors()
         m = allocatePacket(kRxBufferPktSize);
         
         if (!m) {
-            IOLog("Ethernet [IntelMausi]: Couldn't alloc receive buffer.\n");
+            IOLog("[IntelMausi]: Couldn't alloc receive buffer.\n");
             goto error10;
         }
         rxBufArray[i].mbuf = m;
@@ -460,7 +446,7 @@ bool IntelMausi::setupDMADescriptors()
         n = rxMbufCursor->getPhysicalSegments(m, &rxSegment, 1);
         
         if ((n != 1) || (rxSegment.location & 0x07ff)) {
-            IOLog("Ethernet [IntelMausi]: getPhysicalSegments() for receive buffer failed.\n");
+            IOLog("[IntelMausi]: getPhysicalSegments() for receive buffer failed.\n");
             goto error10;
         }
         /* We have to keep the physical address of the buffer too

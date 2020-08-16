@@ -17,11 +17,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>$(MARKETING_VERSION)</string>
+	<string>$(MODULE_VERSION)</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<string>$(MODULE_VERSION)</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IntelMausi</key>
@@ -32,10 +32,6 @@
 			<dict>
 				<key>enableCSO6</key>
 				<true/>
-				<key>enableTSO4</key>
-				<false/>
-				<key>enableTSO6</key>
-				<false/>
 				<key>maxIntrRate10</key>
 				<integer>3000</integer>
 				<key>maxIntrRate100</key>

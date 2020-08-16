@@ -50,7 +50,7 @@ bool IntelMausi::initPCIConfigSpace(IOPCIDevice *provider)
         if (maxLatency > kMaxDmaLatency)
             maxLatency = kMaxDmaLatency;
         
-        DebugLog("Ethernet [IntelMausi]: maxSnoop: 0x%04x (%uns), maxNoSnoop: 0x%04x (%uns).\n", pciDeviceData.maxSnoop, lat1, pciDeviceData.maxNoSnoop, lat2);
+        DebugLog("[IntelMausi]: maxSnoop: 0x%04x (%uns), maxNoSnoop: 0x%04x (%uns).\n", pciDeviceData.maxSnoop, lat1, pciDeviceData.maxNoSnoop, lat2);
     }
     /* Get the bus information. */
     adapterData.hw.bus.func = pciDevice->getFunctionNumber();
@@ -62,7 +62,7 @@ bool IntelMausi::initPCIConfigSpace(IOPCIDevice *provider)
     baseMap = provider->mapDeviceMemoryWithRegister(kIOPCIConfigBaseAddress0, kIOMapInhibitCache);
     
     if (!baseMap) {
-        IOLog("Ethernet [IntelMausi]: region #0 not an MMIO resource, aborting.\n");
+        IOLog("[IntelMausi]: region #0 not an MMIO resource, aborting.\n");
         goto done;
     }
     baseAddr = reinterpret_cast<volatile void *>(baseMap->getVirtualAddress());
@@ -73,7 +73,7 @@ bool IntelMausi::initPCIConfigSpace(IOPCIDevice *provider)
         flashMap = provider->mapDeviceMemoryWithRegister(kIOPCIConfigBaseAddress1, kIOMapInhibitCache);
         
         if (!flashMap) {
-            IOLog("Ethernet [IntelMausi]: region #1 not an MMIO resource, aborting.\n");
+            IOLog("[IntelMausi]: region #1 not an MMIO resource, aborting.\n");
             goto error;
         }
         flashAddr = reinterpret_cast<volatile void *>(flashMap->getVirtualAddress());
@@ -102,15 +102,15 @@ void IntelMausi::initPCIPowerManagment(IOPCIDevice *provider, const struct e1000
     /* Setup power management. */
     if (provider->findPCICapability(kIOPCIPowerManagementCapability, &pmCapOffset)) {
         pmCap = provider->extendedConfigRead16(pmCapOffset + kIOPCIPMCapability);
-        DebugLog("Ethernet [IntelMausi]: PCI power management capabilities: 0x%x.\n", pmCap);
+        DebugLog("[IntelMausi]: PCI power management capabilities: 0x%x.\n", pmCap);
         
         if (pmCap & (kPCIPMCPMESupportFromD3Cold | kPCIPMCPMESupportFromD3Hot)) {
             wolCapable = true;
-            DebugLog("Ethernet [IntelMausi]: PME# from D3 (cold/hot) supported.\n");
+            DebugLog("[IntelMausi]: PME# from D3 (cold/hot) supported.\n");
         }
         pciPMCtrlOffset = pmCapOffset + kIOPCIPMControl;
     } else {
-        IOLog("Ethernet [IntelMausi]: PCI power management unsupported.\n");
+        IOLog("[IntelMausi]: PCI power management unsupported.\n");
     }
     provider->enablePCIPowerManagement();
     
@@ -118,7 +118,7 @@ void IntelMausi::initPCIPowerManagment(IOPCIDevice *provider, const struct e1000
     if (provider->findPCICapability(kIOPCIPCIExpressCapability, &pcieCapOffset)) {
         pcieLinkCap = provider->extendedConfigRead32(pcieCapOffset + kIOPCIELinkCapability);
         pcieLinkCtl = provider->extendedConfigRead16(pcieCapOffset + kIOPCIELinkControl);
-        DebugLog("Ethernet [IntelMausi]: PCIe link capabilities: 0x%08x, link control: 0x%04x.\n", pcieLinkCap, pcieLinkCtl);
+        DebugLog("[IntelMausi]: PCIe link capabilities: 0x%08x, link control: 0x%04x.\n", pcieLinkCap, pcieLinkCtl);
         aspmDisable = 0;
         
         if (ei->flags2 & FLAG2_DISABLE_ASPM_L0S)
@@ -134,9 +134,9 @@ void IntelMausi::initPCIPowerManagment(IOPCIDevice *provider, const struct e1000
         pcieLinkCtl = provider->extendedConfigRead16(pcieCapOffset + kIOPCIELinkControl);
         
         if (pcieLinkCtl & (kIOPCIELinkCtlASPM | kIOPCIELinkCtlClkReqEn))
-            IOLog("Ethernet [IntelMausi]: PCIe ASPM enabled. link control: 0x%04x.\n", pcieLinkCtl);
+            IOLog("[IntelMausi]: PCIe ASPM enabled. link control: 0x%04x.\n", pcieLinkCtl);
         else
-            IOLog("Ethernet [IntelMausi]: PCIe ASPM disabled. link control: 0x%04x.\n", pcieLinkCtl);
+            IOLog("[IntelMausi]: PCIe ASPM disabled. link control: 0x%04x.\n", pcieLinkCtl);
 #endif  /* DEBUG */
     }
 }
@@ -204,7 +204,7 @@ void IntelMausi::intelEEPROMChecks(struct e1000_adapter *adapter)
     
 	if (!ret_val && (!(buf & (1 << 0)))) {
 		/* Deep Smart Power Down (DSPD) */
-		IOLog("Ethernet [IntelMausi]: Warning: detected DSPD enabled in EEPROM.\n");
+		IOLog("[IntelMausi]: Warning: detected DSPD enabled in EEPROM.\n");
 	}
 }
 
@@ -229,14 +229,13 @@ void IntelMausi::intelEnable()
     selectedMedium = getSelectedMedium();
     
     if (!selectedMedium) {
-        DebugLog("Ethernet [IntelMausi]: No medium selected. Falling back to autonegotiation.\n");
+        DebugLog("[IntelMausi]: No medium selected. Falling back to autonegotiation.\n");
         selectedMedium = mediumTable[MEDIUM_INDEX_AUTO];
         setCurrentMedium(selectedMedium);
     }
     
     /* Check if we re waking up from sleep with WoL enabled and still have a valid link. */
-    if (!linkOpts || !intelCheckLink(&adapterData)) {
-        linkOpts = 0;
+    if (!intelCheckLink(&adapterData)) {
         setLinkStatus(kIONetworkLinkValid);
     }
     polling = false;
@@ -279,7 +278,6 @@ void IntelMausi::intelDisable()
     int retval;
     
     polling = false;
-    linkOpts = 0;
 
     /* Flush LPIC. */
     intelFlushLPIC();
@@ -328,10 +326,7 @@ void IntelMausi::intelDisable()
             intelWriteMem32(E1000_WUFC, wufc);
             intelWriteMem32(E1000_WUC, E1000_WUC_PME_EN);
         }
-        DebugLog("Ethernet [IntelMausi]: WUFC=0x%08x.\n", wufc);
-        
-        linkOpts = kIONetworkLinkNoNetworkChange;
-        linkStatus |= linkOpts;
+        DebugLog("[IntelMausi]: WUFC=0x%08x.\n", wufc);
     } else {
         intelDown(&adapterData, true);
         intelWriteMem32(E1000_WUC, 0);
@@ -377,7 +372,7 @@ void IntelMausi::intelDisable()
     if (linkUp) {
         linkUp = false;
         setLinkStatus(linkStatus);
-        IOLog("Ethernet [IntelMausi]: Link down on en%u\n", netif->getUnitNumber());
+        IOLog("[IntelMausi]: Link down on en%u\n", netif->getUnitNumber());
     }
 }
 
@@ -488,7 +483,7 @@ void IntelMausi::intelSetupRxControl(struct e1000_adapter *adapter)
 			ret_val = e1000_lv_jumbo_workaround_ich8lan(hw, false);
         
 		if (ret_val)
-			DebugLog("Ethernet [IntelMausi]: failed to enable/disable jumbo frame workaround mode.\n");
+			DebugLog("[IntelMausi]: failed to enable/disable jumbo frame workaround mode.\n");
 	}
 	/* Program MC offset vector base */
 	rctl = intelReadMem32(E1000_RCTL);
@@ -634,7 +629,7 @@ void IntelMausi::intelDown(struct e1000_adapter *adapter, bool reset)
     
 	/* Disable Si errata workaround on PCHx for jumbo frame flow */
 	if ((hw->mac.type >= e1000_pch2lan) && (mtu > ETH_DATA_LEN) && e1000_lv_jumbo_workaround_ich8lan(hw, false))
-		DebugLog("Ethernet [IntelMausi]: failed to disable jumbo frame workaround mode\n");
+		DebugLog("[IntelMausi]: failed to disable jumbo frame workaround mode\n");
     
 	if (reset)
 		intelReset(adapter);
@@ -701,7 +696,7 @@ void IntelMausi::intelInitManageabilityPt(struct e1000_adapter *adapter)
                 }
             
             if (!j)
-                IOLog("Ethernet [IntelMausi]: Unable to create IPMI pass-through filter.\n");
+                IOLog("[IntelMausi]: Unable to create IPMI pass-through filter.\n");
             break;
 	}
 	intelWriteMem32(E1000_MANC2H, manc2h);
@@ -856,7 +851,7 @@ void IntelMausi::intelReset(struct e1000_adapter *adapter)
 	intelWriteMem32(E1000_WUC, 0);
     
 	if (mac->ops.init_hw(hw))
-		IOLog("Ethernet [IntelMausi]: Hardware Error.\n");
+		IOLog("[IntelMausi]: Hardware Error.\n");
     
 	//e1000_update_mng_vlan(adapter);
     
@@ -881,14 +876,14 @@ void IntelMausi::intelReset(struct e1000_adapter *adapter)
                 adv_addr = I217_EEE_ADVERTISEMENT;
                 break;
             default:
-                IOLog("Ethernet [IntelMausi]: Invalid PHY type setting EEE advertisement.\n");
+                IOLog("[IntelMausi]: Invalid PHY type setting EEE advertisement.\n");
                 return;
 		}
         
 		ret_val = hw->phy.ops.acquire(hw);
         
 		if (ret_val) {
-			IOLog("Ethernet [IntelMausi]: EEE advertisement - unable to acquire PHY.\n");
+			IOLog("[IntelMausi]: EEE advertisement - unable to acquire PHY.\n");
 			return;
 		}
 		e1000_write_emi_reg_locked(hw, adv_addr, hw->dev_spec.ich8lan.eee_disable ? 0 : adapter->eee_advert);
@@ -964,7 +959,7 @@ void IntelMausi::intelResetAdaptive(struct e1000_hw *hw)
 	struct e1000_mac_info *mac = &hw->mac;
     
 	if (!mac->adaptive_ifs) {
-		DebugLog("Ethernet [IntelMausi]: Not in Adaptive IFS mode!\n");
+		DebugLog("[IntelMausi]: Not in Adaptive IFS mode!\n");
 		return;
 	}
 	mac->current_ifs_val = 0;
@@ -989,7 +984,7 @@ void IntelMausi::intelUpdateAdaptive(struct e1000_hw *hw)
 	struct e1000_mac_info *mac = &hw->mac;
     
 	if (!mac->adaptive_ifs) {
-		DebugLog("Ethernet [IntelMausi]: Not in Adaptive IFS mode!\n");
+		DebugLog("[IntelMausi]: Not in Adaptive IFS mode!\n");
 		return;
 	}
     
@@ -1092,7 +1087,7 @@ void IntelMausi::intelRestart()
 
     /*  Also set the link status to down. */
     if (linkUp)
-        IOLog("Ethernet [IntelMausi]: Link down on en%u\n", netif->getUnitNumber());
+        IOLog("[IntelMausi]: Link down on en%u\n", netif->getUnitNumber());
 
     setLinkStatus(kIONetworkLinkValid);
     linkUp = false;
@@ -1158,7 +1153,7 @@ void IntelMausi::intelUpdateTxDescTail(UInt32 index)
             intelWriteMem32(E1000_TCTL, tctl & ~E1000_TCTL_EN);
             forceReset = true;
             
-            IOLog("Ethernet [IntelMausi]: ME firmware caused invalid TDT - resetting.\n");
+            IOLog("[IntelMausi]: ME firmware caused invalid TDT - resetting.\n");
         }
     } else {
         intelWriteMem32(E1000_TDT(0), index);
@@ -1179,7 +1174,7 @@ void IntelMausi::intelUpdateRxDescTail(UInt32 index)
         intelWriteMem32(E1000_RCTL, rctl & ~E1000_RCTL_EN);
         forceReset = true;
         
-        IOLog("Ethernet [IntelMausi]: ME firmware caused invalid RDT - resetting.\n");
+        IOLog("[IntelMausi]: ME firmware caused invalid RDT - resetting.\n");
     }
 }
 
@@ -1231,10 +1226,10 @@ void IntelMausi::intelFlushTxRing(struct e1000_adapter *adapter)
     tdt = intelReadMem32(E1000_TDT(0));
     
     if (tdt != txNextDescIndex) {
-        IOLog("Ethernet [IntelMausi]: Failed to flush tx descriptor ring.\n");
+        IOLog("[IntelMausi]: Failed to flush tx descriptor ring.\n");
         goto done;
     }
-    DebugLog("Ethernet [IntelMausi]: Flushing tx descriptor ring.\n");
+    DebugLog("[IntelMausi]: Flushing tx descriptor ring.\n");
 
     OSAddAtomic(-1, &txNumFreeDesc);
     desc = &txDescArray[txNextDescIndex++];
@@ -1261,7 +1256,7 @@ void IntelMausi::intelFlushRxRing(struct e1000_adapter *adapter)
 {
     UInt32 rctl, rxdctl;
     
-    DebugLog("Ethernet [IntelMausi]: Flushing rx descriptor ring.\n");
+    DebugLog("[IntelMausi]: Flushing rx descriptor ring.\n");
 
     rctl = intelReadMem32(E1000_RCTL);
     intelWriteMem32(E1000_RCTL, rctl & ~E1000_RCTL_EN);
@@ -1359,7 +1354,7 @@ bool IntelMausi::intelCheckLink(struct e1000_adapter *adapter)
 	if ((ret_val == E1000_ERR_PHY) && (hw->phy.type == e1000_phy_igp_3) &&
 	    (intelReadMem32(E1000_CTRL) & E1000_PHY_CTRL_GBE_DISABLE)) {
 		/* See e1000_kmrn_lock_loss_workaround_ich8lan() */
-		IOLog("Ethernet [IntelMausi]: Gigabit has been disabled, downgrading speed.\n");
+		IOLog("[IntelMausi]: Gigabit has been disabled, downgrading speed.\n");
 	}
 	return link_active;
 }
@@ -1387,7 +1382,7 @@ void IntelMausi::intelPhyReadStatus(struct e1000_adapter *adapter)
 		ret_val |= e1e_rphy(hw, MII_ESTATUS, &phy->estatus);
         
 		if (ret_val)
-			IOLog("Ethernet [IntelMausi]: Error reading PHY register.\n");
+			IOLog("[IntelMausi]: Error reading PHY register.\n");
 	} else {
 		/* Do not read PHY registers if link is not up
 		 * Set values to typical power-on defaults
@@ -1419,14 +1414,14 @@ void IntelMausi::intelInitPhyWakeup(UInt32 wufc)
     error = hw->phy.ops.acquire(hw);
     
     if (error) {
-        DebugLog("Ethernet [IntelMausi]: Failed to acquire PHY.\n");
+        DebugLog("[IntelMausi]: Failed to acquire PHY.\n");
         return;
     }
     /* Enable access to wakeup registers on and set page to BM_WUC_PAGE */
     error = e1000_enable_phy_wakeup_reg_access_bm(hw, &wuc_enable);
     
     if (error) {
-        DebugLog("Ethernet [IntelMausi]: Failed to access PHY wakeup registers.\n");
+        DebugLog("[IntelMausi]: Failed to access PHY wakeup registers.\n");
         goto release;
     }
     /* copy MAC MTA to PHY MTA - only needed for pchlan */
@@ -1483,7 +1478,7 @@ void IntelMausi::intelInitPhyWakeup(UInt32 wufc)
     error = e1000_disable_phy_wakeup_reg_access_bm(hw, &wuc_enable);
     
     if (error)
-        DebugLog("Ethernet [IntelMausi]: Failed to set PHY Host Wakeup bit.\n");
+        DebugLog("[IntelMausi]: Failed to set PHY Host Wakeup bit.\n");
     
 release:
     hw->phy.ops.release(hw);
@@ -1600,7 +1595,7 @@ void IntelMausi::intelFlushLPIC()
         return;
     
     lpic = intelReadMem32(E1000_LPIC);
-    DebugLog("Ethernet [IntelMausi]: LPIC=0x%08x.\n", lpic);
+    DebugLog("[IntelMausi]: LPIC=0x%08x.\n", lpic);
 
     hw->phy.ops.release(hw);
 }
@@ -1619,7 +1614,7 @@ void IntelMausi::setMaxLatency(UInt32 linkSpeed)
     
     requireMaxBusStall(latency);
     
-    DebugLog("Ethernet [IntelMausi]: requireMaxBusStall(%uns).\n", latency);
+    DebugLog("[IntelMausi]: requireMaxBusStall(%uns).\n", latency);
 }
 
 UInt16 IntelMausi::intelSupportsEEE(struct e1000_adapter *adapter)
@@ -1678,7 +1673,7 @@ UInt16 IntelMausi::intelSupportsEEE(struct e1000_adapter *adapter)
     if (adv & dev_spec->eee_lp_ability & I82579_EEE_100_SUPPORTED)
         result |= I82579_LPI_CTRL_100_ENABLE;
 
-    DebugLog("Ethernet [IntelMausi]: EEE mode = 0x%04x, adv=0x%04x, lpa=0x%04x\n", result, adv, dev_spec->eee_lp_ability);
+    DebugLog("[IntelMausi]: EEE mode = 0x%04x, adv=0x%04x, lpa=0x%04x\n", result, adv, dev_spec->eee_lp_ability);
 
 release:
     hw->phy.ops.release(hw);

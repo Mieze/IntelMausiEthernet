@@ -476,7 +476,6 @@ private:
     UInt8 pcieCapOffset;
     UInt8 pciPMCtrlOffset;
     
-    UInt32 linkOpts;
     IONetworkPacketPollingParameters pollParams;
 
     /* flags */
@@ -490,8 +489,6 @@ private:
     bool forceReset;
     bool wolCapable;
     bool wolActive;
-    bool enableTSO4;
-    bool enableTSO6;
     bool enableCSO6;
     
     /* mbuf_t arrays */
