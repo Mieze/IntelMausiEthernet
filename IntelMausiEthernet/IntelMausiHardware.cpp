@@ -240,6 +240,22 @@ void IntelMausi::intelEnable()
     }
     polling = false;
 
+#ifdef DEBUG
+    if (adapterData.flags2 & FLAG2_HAS_PHY_WAKEUP) {
+        struct e1000_hw *hw = &adapterData.hw;
+        UInt16 phyData;
+        
+        hw->phy.ops.read_reg(hw, BM_WUS, &phyData);
+        hw->phy.ops.write_reg(hw, BM_WUS, ~0);
+        
+        IOLog("[IntelMausi]: WUS=0x%04x\n", phyData);
+    } else {
+        IOLog("[IntelMausi]: WUS=0x%08x\n", intelReadMem32(E1000_WUS));
+        
+        intelWriteMem32(E1000_WUS, ~0);
+    }
+#endif
+    
     intelSetupAdvForMedium(selectedMedium);
 
     e1000_phy_hw_reset(hw);
@@ -271,6 +287,7 @@ void IntelMausi::intelEnable()
 
 void IntelMausi::intelDisable()
 {
+    struct IntelAddrData addrData;
     struct e1000_hw *hw = &adapterData.hw;
     UInt32 linkStatus = kIONetworkLinkValid;
     UInt32 wufc = adapterData.wol;
@@ -288,6 +305,9 @@ void IntelMausi::intelDisable()
         wufc &= ~E1000_WUFC_LNKC;
 
     if (wolActive && wufc) {
+        /* Get interface's IP addresses. */
+        getAddressList(&addrData);
+
         intelDown(&adapterData, false);
         intelSetupRxControl(&adapterData);
         
@@ -320,11 +340,14 @@ void IntelMausi::intelDisable()
         
         if (adapterData.flags2 & FLAG2_HAS_PHY_WAKEUP) {
             /* enable wakeup by the PHY */
-            intelInitPhyWakeup(wufc);
+            intelInitPhyWakeup(wufc, &addrData);
+            
+            DebugLog("Ethernet [IntelMausi]: Configure wakeup by PHY.\n");
         } else {
             /* enable wakeup by the MAC */
-            intelWriteMem32(E1000_WUFC, wufc);
-            intelWriteMem32(E1000_WUC, E1000_WUC_PME_EN);
+            intelInitMacWakeup(wufc, &addrData);
+            
+            DebugLog("Ethernet [IntelMausi]: Configure wakeup by MAC.\n");
         }
         DebugLog("[IntelMausi]: WUFC=0x%08x.\n", wufc);
     } else {
@@ -1401,13 +1424,13 @@ void IntelMausi::intelPhyReadStatus(struct e1000_adapter *adapter)
 	}
 }
 
-void IntelMausi::intelInitPhyWakeup(UInt32 wufc)
+void IntelMausi::intelInitPhyWakeup(UInt32 wufc, struct IntelAddrData *addrData)
 {
     struct e1000_hw *hw = &adapterData.hw;
-    u32 i, mac_reg, wuc;
-    u16 phy_reg, wuc_enable;
+    UInt32 i, mac_reg, wuc, ad, num;
     int error;
-    
+    UInt16 phy_reg, wuc_enable, av;
+
     /* copy MAC RARs to PHY RARs */
     e1000_copy_rx_addrs_to_phy_ich8lan(hw);
     
@@ -1434,7 +1457,7 @@ void IntelMausi::intelInitPhyWakeup(UInt32 wufc)
     }
     /* configure PHY Rx Control register */
     hw->phy.ops.read_reg_page(hw, BM_RCTL, &phy_reg);
-    mac_reg = er32(RCTL);
+    mac_reg = intelReadMem32(E1000_RCTL);
     
     if (mac_reg & E1000_RCTL_UPE)
         phy_reg |= BM_RCTL_UPE;
@@ -1453,23 +1476,84 @@ void IntelMausi::intelInitPhyWakeup(UInt32 wufc)
     if (mac_reg & E1000_RCTL_PMCF)
         phy_reg |= BM_RCTL_PMCF;
     
-    mac_reg = er32(CTRL);
+    mac_reg = intelReadMem32(E1000_CTRL);
     
     if (mac_reg & E1000_CTRL_RFCE)
         phy_reg |= BM_RCTL_RFCE;
     
-    hw->phy.ops.write_reg_page(hw, BM_RCTL, phy_reg);
-    
+    /* Disable slave access to activate filters */
+    phy_reg &= ~BM_RCTL_SAE;
+        
     wuc = E1000_WUC_PME_EN;
     
     if (wufc & (E1000_WUFC_MAG | E1000_WUFC_LNKC))
         wuc |= E1000_WUC_APME;
     
-    /* enable PHY wakeup in MAC register */
-    ew32(WUFC, wufc);
-    ew32(WUC, (E1000_WUC_PHY_WAKE | E1000_WUC_APMPME | E1000_WUC_PME_STATUS | wuc));
+    /*
+     * Enable wakeup by ARP request and directed IPv4/IPv6 packets.
+     */
+    if (addrData->ipV4Count > 0)
+        wufc |= (E1000_WUFC_EX | E1000_WUFC_ARP | E1000_WUFC_IP4);
     
-    /* configure and enable PHY wakeup in PHY registers */
+    if (addrData->ipV6Count > 0)
+        wufc |= (E1000_WUFC_EX | E1000_WUFC_IP6);
+
+    /* enable PHY wakeup in MAC register */
+    intelWriteMem32(E1000_WUFC, wufc);
+    intelWriteMem32(E1000_WUC, (E1000_WUC_PHY_WAKE | E1000_WUC_APMPME | E1000_WUC_PME_STATUS | wuc));
+    
+    /*
+     * Setup IPv4 and IPv6 wakeup address registers with the
+     * retrieved address list.
+     */
+    av = 0x0000;
+    num = (addrData->ipV4Count > kMaxAddrV4) ? kMaxAddrV4 : addrData->ipV4Count;
+    
+    for (i = 0; i < num; i++) {
+        //av |= BIT(i + 1);
+        ad = addrData->ipV4Addr[i];
+        
+        hw->phy.ops.write_reg_page(hw, BM_IP4AT0(i), (u16)(ad & 0xFFFF));
+        hw->phy.ops.write_reg_page(hw, BM_IP4AT1(i), (u16)((ad >> 16) & 0xFFFF));
+    }
+    num = (addrData->ipV6Count > kMaxAddrV6) ? kMaxAddrV6 : addrData->ipV6Count;
+
+    for (i = 0; i < num; i++) {
+        av |= BIT(7 - i);
+        
+        ad = addrData->ipV6Addr[i].s6_addr32[0];
+        hw->phy.ops.write_reg_page(hw, BM_IP6AT0(i), (u16)(ad & 0xFFFF));
+        hw->phy.ops.write_reg_page(hw, BM_IP6AT1(i), (u16)((ad >> 16) & 0xFFFF));
+        
+        ad = addrData->ipV6Addr[i].s6_addr32[1];
+        hw->phy.ops.write_reg_page(hw, BM_IP6AT2(i), (u16)(ad & 0xFFFF));
+        hw->phy.ops.write_reg_page(hw, BM_IP6AT3(i), (u16)((ad >> 16) & 0xFFFF));
+        
+        ad = addrData->ipV6Addr[i].s6_addr32[2];
+        hw->phy.ops.write_reg_page(hw, BM_IP6AT4(i), (u16)(ad & 0xFFFF));
+        hw->phy.ops.write_reg_page(hw, BM_IP6AT5(i), (u16)((ad >> 16) & 0xFFFF));
+        
+        ad = addrData->ipV6Addr[i].s6_addr32[3];
+        hw->phy.ops.write_reg_page(hw, BM_IP6AT6(i), (u16)(ad & 0xFFFF));
+        hw->phy.ops.write_reg_page(hw, BM_IP6AT7(i), (u16)((ad >> 16) & 0xFFFF));
+    }
+    /*
+     * Fix address valid mask as bit 15 is a duplicate of bit 7
+     * and write to IPAV register.
+     */
+    if (av & BIT(7)) {
+        av |= BIT(15);
+    }
+    hw->phy.ops.write_reg_page(hw, BM_IPAV, av);
+    DebugLog("[IntelMausi]: PHY IPAV = 0x%04x.\n", av);
+    DebugLog("[IntelMausi]: PHY WUFC = 0x%04x.\n", wufc);
+    DebugLog("[IntelMausi]: PHY WUC = 0x%04x.\n", wuc);
+
+    /* Configure PHY rx control */
+    DebugLog("[IntelMausi]: PHY RCTL = 0x%04x.\n", phy_reg);
+    hw->phy.ops.write_reg_page(hw, BM_RCTL, phy_reg);
+
+    /* Configure and enable PHY wakeup in PHY registers */
     hw->phy.ops.write_reg_page(hw, BM_WUFC, wufc);
     hw->phy.ops.write_reg_page(hw, BM_WUC, wuc);
     
@@ -1482,6 +1566,37 @@ void IntelMausi::intelInitPhyWakeup(UInt32 wufc)
     
 release:
     hw->phy.ops.release(hw);
+}
+
+void IntelMausi::intelInitMacWakeup(UInt32 wufc, struct IntelAddrData *addrData)
+{
+    UInt32 av, num, i;
+    
+    /* Enable wakeup by ARP request and directed IPv4 packets. */
+    if (addrData->ipV4Count > 0)
+        wufc |= (E1000_WUFC_EX | E1000_WUFC_ARP | E1000_WUFC_IP4);
+    
+    /* Configure IPv4 wakeup address registers. */
+    av = 0;
+    num = (addrData->ipV4Count > kMaxAddrV4) ? kMaxAddrV4 : addrData->ipV4Count;
+    
+    for (i = 0; i < num; i++) {
+        av |= BIT(i + 1);
+        intelWriteMem32(E1000_IP4AT(i), addrData->ipV4Addr[i]);
+    }
+
+    /* Configure IPv6 wakeup address registers. */
+    if (addrData->ipV6Count > 0) {
+        wufc |= (E1000_WUFC_EX | E1000_WUFC_IP6);
+        av |= BIT(16);
+
+        for (i = 0; i < 4; i++) {
+            intelWriteMem32(E1000_IP6AT(i), addrData->ipV6Addr[0].s6_addr32[i]);
+        }
+    }
+    intelWriteMem32(E1000_IPAV, av);
+    intelWriteMem32(E1000_WUFC, wufc);
+    intelWriteMem32(E1000_WUC, (E1000_WUC_PME_EN | E1000_WUC_PME_STATUS));
 }
 
 void IntelMausi::intelSetupAdvForMedium(const IONetworkMedium *medium)

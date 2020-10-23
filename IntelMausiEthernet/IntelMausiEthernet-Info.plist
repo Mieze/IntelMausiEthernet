@@ -32,6 +32,8 @@
 			<dict>
 				<key>enableCSO6</key>
 				<true/>
+				<key>enableWakeOnAddrMatch</key>
+				<false/>
 				<key>maxIntrRate10</key>
 				<integer>3000</integer>
 				<key>maxIntrRate100</key>

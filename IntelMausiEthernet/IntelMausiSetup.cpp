@@ -64,6 +64,7 @@ void IntelMausi::getParams()
     OSString *versionString;
     OSNumber *num;
     OSBoolean *csoV6;
+    OSBoolean *wom;
     UInt32 newIntrRate10;
     UInt32 newIntrRate100;
     UInt32 newIntrRate1000;
@@ -78,6 +79,11 @@ void IntelMausi::getParams()
         
         IOLog("[IntelMausi]: TCP/IPv6 checksum offload %s.\n", enableCSO6 ? onName : offName);
         
+        wom = OSDynamicCast(OSBoolean, params->getObject(kEnableWoMName));
+        enableWoM = (wom) ? wom->getValue() : false;
+
+        IOLog("[IntelMausi]: Wake on address match %s.\n", enableWoM ? onName : offName);
+
         /* Get maximum interrupt rate for 10M. */
         num = OSDynamicCast(OSNumber, params->getObject(kIntrRate10Name));
         newIntrRate10 = 3000;
@@ -190,6 +196,7 @@ void IntelMausi::getParams()
     } else {
         /* Use default values in case of missing config data. */
         enableCSO6 = false;
+        enableWoM = false;
         newIntrRate10 = 3000;
         newIntrRate100 = 5000;
         newIntrRate1000 = 7000;
@@ -599,4 +606,65 @@ void IntelMausi::discardPacketFragment()
     
     rxPacketHead = rxPacketTail = NULL;
     rxPacketSize = 0;
+}
+
+/*
+ * Retrieve a list of IPv4 and IVv6 addresses of the interface which
+ * are required by the ARP and IP wakeup filters. As hardware supports
+ * a maximum of 3 IPv4 and 4 IPv6 addresses, we have to ignore
+ * excess addresses and limit IPv6 addresses to Link-Local and
+ * Unique Local Addresses.
+ */
+
+void IntelMausi::getAddressList(struct IntelAddrData *addrData)
+{
+    ifnet_t interface = netif->getIfnet();
+    ifaddr_t *addresses;
+    ifaddr_t addr;
+    struct sockaddr_in addr4;
+    struct sockaddr_in6 addr6;
+    sa_family_t family;
+    u_int32_t i = 0, prefix;
+    
+    addrData->ipV6Count = 0;
+    addrData->ipV4Count = 0;
+    
+    if (enableWoM) {
+        if (!ifnet_get_address_list(interface, &addresses)) {
+            while ((addr = addresses[i++]) != NULL) {
+                family = ifaddr_address_family(addr);
+                
+                switch (family) {
+                    case AF_INET:
+                        if (!ifaddr_address(addr, (struct sockaddr *) &addr4, sizeof(struct sockaddr_in))) {
+                            if (addrData->ipV4Count < kMaxAddrV4) {
+                                addrData->ipV4Addr[addrData->ipV4Count++] = addr4.sin_addr.s_addr;
+                                
+                                DebugLog("[IntelMausi]: IPv4 address 0x%08x.\n", OSSwapBigToHostInt32(addr4.sin_addr.s_addr));
+                            }
+                        }
+                        break;
+                        
+                    case AF_INET6:
+                        if (!ifaddr_address(addr, (struct sockaddr *) &addr6, sizeof(struct sockaddr_in6))) {
+                            prefix = OSSwapBigToHostInt32(addr6.sin6_addr.s6_addr32[0]);
+                            
+                            if ((addrData->ipV6Count < kMaxAddrV6) && (((prefix & kULAMask) == kULAPrefix) || ((prefix & kLLAMask) == kLLAPrefix))) {
+                                addrData->ipV6Addr[addrData->ipV6Count].s6_addr32[0] = addr6.sin6_addr.s6_addr32[0];
+                                addrData->ipV6Addr[addrData->ipV6Count].s6_addr32[1] = addr6.sin6_addr.s6_addr32[1];
+                                addrData->ipV6Addr[addrData->ipV6Count].s6_addr32[2] = addr6.sin6_addr.s6_addr32[2];
+                                addrData->ipV6Addr[addrData->ipV6Count++].s6_addr32[3] = addr6.sin6_addr.s6_addr32[3];
+                                
+                                DebugLog("[IntelMausi]: IPv6 address 0x%08x 0x%08x 0x%08x 0x%08x.\n", OSSwapBigToHostInt32(addr6.sin6_addr.s6_addr32[0]), OSSwapBigToHostInt32(addr6.sin6_addr.s6_addr32[1]), OSSwapBigToHostInt32(addr6.sin6_addr.s6_addr32[2]), OSSwapBigToHostInt32(addr6.sin6_addr.s6_addr32[3]));
+                            }
+                        }
+                        break;
+                        
+                    default:
+                        break;
+                }
+            }
+            ifnet_free_address_list(addresses);
+        }
+    }
 }

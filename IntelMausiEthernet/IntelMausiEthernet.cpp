@@ -930,8 +930,15 @@ IOReturn IntelMausi::getPacketFilters(const OSSymbol *group, UInt32 *filters) co
     DebugLog("getPacketFilters() ===>\n");
     
     if ((group == gIOEthernetWakeOnLANFilterGroup) && wolCapable) {
-        *filters = kIOEthernetWakeOnMagicPacket;
-        DebugLog("[IntelMausi]: kIOEthernetWakeOnMagicPacket added to filters.\n");
+        if (enableWoM) {
+            *filters = (kIOEthernetWakeOnMagicPacket | kIOEthernetWakeOnPacketAddressMatch);
+            
+            DebugLog("[IntelMausi]: kIOEthernetWakeOnMagicPacket and kIOEthernetWakeOnPacketAddressMatch added to filters.\n");
+        } else {
+            *filters = kIOEthernetWakeOnMagicPacket;
+            
+            DebugLog("[IntelMausi]: kIOEthernetWakeOnMagicPacket added to filters.\n");
+        }
     } else {
         result = super::getPacketFilters(group, filters);
     }
