@@ -1,6 +1,14 @@
 # IntelMausiEthernet
 OS X driver for Intel onboard LAN
 
+# Support
+
+Please refer to the driver's thread on insanelymac.com
+
+https://www.insanelymac.com/forum/topic/304235-intelmausiethernetkext-for-intel-onboard-lan/
+
+in case you have further questions, need support or want to submit a problem report. As of now, support requests here on Github will be ignored!
+
 A few days before Christmas I started my latest project, a new driver for recent Intel onboard LAN controllers. My intention was not to replace hnak's AppleIntelE1000e.kext completely but to deliver best performance and stability on recent hardware. That's why I dropped support for a number of older NICs. Currently the driver supports:
  
 - 5 Series
@@ -42,11 +50,3 @@ Key Features of the Driver
 - Support for Energy Efficient Ethernet (EEE).
 - VLAN support is implemented but untested as I have no need for it.
 - The driver is published under GPLv2.
-
-Support
-
-Please refer to the driver's thread on insanelymac.com
-
-https://www.insanelymac.com/forum/topic/304235-intelmausiethernetkext-for-intel-onboard-lan/
-
-in case you have further questions, need support or want to submit a problem report. As of now, support requests here on Github will be ignored!
