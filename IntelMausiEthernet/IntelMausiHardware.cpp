@@ -1510,7 +1510,7 @@ void IntelMausi::intelInitPhyWakeup(UInt32 wufc, struct IntelAddrData *addrData)
     num = (addrData->ipV4Count > kMaxAddrV4) ? kMaxAddrV4 : addrData->ipV4Count;
     
     for (i = 0; i < num; i++) {
-        //av |= BIT(i + 1);
+        av |= BIT(i + 1);
         ad = addrData->ipV4Addr[i];
         
         hw->phy.ops.write_reg_page(hw, BM_IP4AT0(i), (u16)(ad & 0xFFFF));

@@ -34,6 +34,8 @@
 				<true/>
 				<key>enableWakeOnAddrMatch</key>
 				<false/>
+				<key>enableWakeS5</key>
+				<false/>
 				<key>maxIntrRate10</key>
 				<integer>3000</integer>
 				<key>maxIntrRate100</key>
