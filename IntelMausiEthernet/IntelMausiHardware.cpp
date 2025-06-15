@@ -838,12 +838,14 @@ void IntelMausi::intelReset(struct e1000_adapter *adapter)
         case e1000_pch_lpt:
         case e1000_pch_spt:
         case e1000_pch_cnp:
-            fc->refresh_time = 0x0400;
+        case e1000_pch_tgp:
+        case e1000_pch_adp:
+            fc->refresh_time = 0xFFFF;
+            fc->pause_time = 0xFFFF;
             
             if (mtu <= ETH_DATA_LEN) {
                 fc->high_water = 0x05C20;
                 fc->low_water = 0x05048;
-                fc->pause_time = 0x0650;
                 break;
             }
             

@@ -90,7 +90,18 @@ static const struct intelDevice deviceTable[] = {
     { .pciDevId = E1000_DEV_ID_PCH_CMP_I219_V11, .device = board_pch_cnp, .deviceName = "I219V11", .deviceInfo = &e1000_pch_cnp_info },
     { .pciDevId = E1000_DEV_ID_PCH_CMP_I219_LM12, .device = board_pch_spt, .deviceName = "I219LM12", .deviceInfo = &e1000_pch_spt_info },
     { .pciDevId = E1000_DEV_ID_PCH_CMP_I219_V12, .device = board_pch_spt, .deviceName = "I219V12", .deviceInfo = &e1000_pch_spt_info },
-    
+    { .pciDevId = E1000_DEV_ID_PCH_TGP_I219_LM13, .device = board_pch_tgp, .deviceName = "I219LM13", .deviceInfo = &e1000_pch_tgp_info },
+    { .pciDevId = E1000_DEV_ID_PCH_TGP_I219_V13, .device = board_pch_tgp, .deviceName = "I219V13", .deviceInfo = &e1000_pch_tgp_info },
+    { .pciDevId = E1000_DEV_ID_PCH_TGP_I219_LM14, .device = board_pch_tgp, .deviceName = "I219LM14", .deviceInfo = &e1000_pch_tgp_info },
+    { .pciDevId = E1000_DEV_ID_PCH_TGP_I219_V14, .device = board_pch_tgp, .deviceName = "I219V14",  .deviceInfo = &e1000_pch_tgp_info },
+    { .pciDevId = E1000_DEV_ID_PCH_TGP_I219_LM15, .device = board_pch_tgp, .deviceName = "I219LM15", .deviceInfo = &e1000_pch_tgp_info },
+    { .pciDevId = E1000_DEV_ID_PCH_TGP_I219_V15, .device = board_pch_tgp, .deviceName = "I219LM15", .deviceInfo = &e1000_pch_tgp_info },
+    { .pciDevId = E1000_DEV_ID_PCH_RPL_I219_LM23, .device = board_pch_adp, .deviceName = "I219LM23", .deviceInfo = &e1000_pch_adp_info },
+    { .pciDevId = E1000_DEV_ID_PCH_RPL_I219_V23, .device = board_pch_adp, .deviceName = "I219V23", .deviceInfo = &e1000_pch_adp_info },
+    { .pciDevId = E1000_DEV_ID_PCH_ADP_I219_LM16, .device = board_pch_adp, .deviceName = "I219LM16", .deviceInfo = &e1000_pch_adp_info },
+    { .pciDevId = E1000_DEV_ID_PCH_ADP_I219_V16, .device = board_pch_adp, .deviceName = "I219V16", .deviceInfo = &e1000_pch_adp_info },
+    { .pciDevId = E1000_DEV_ID_PCH_ADP_I219_LM17, .device = board_pch_adp, .deviceName = "I219LM17", .deviceInfo = &e1000_pch_adp_info },
+    { .pciDevId = E1000_DEV_ID_PCH_ADP_I219_V17, .device = board_pch_adp, .deviceName = "I219V17", .deviceInfo = &e1000_pch_adp_info },
     /* end of table */
     { .pciDevId = 0, .device = 0, .deviceName = NULL, .deviceInfo = NULL }
 };
@@ -257,6 +268,8 @@ bool IntelMausi::start(IOService *provider)
         IOLog("[IntelMausi]: Failed to open provider.\n");
         goto error1;
     }
+    mapper = IOMapper::copyMapperForDevice(pciDevice);
+
     if (!initPCIConfigSpace(pciDevice)) {
         goto error2;
     }

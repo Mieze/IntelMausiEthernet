@@ -440,6 +440,7 @@ private:
 	IOMemoryMap *baseMap;
     volatile void *baseAddr;
 	IOMemoryMap *flashMap;
+    IOMapper *mapper;
     volatile void *flashAddr;
     
     /* transmitter data */

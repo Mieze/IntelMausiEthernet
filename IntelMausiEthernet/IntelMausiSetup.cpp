@@ -347,7 +347,7 @@ bool IntelMausi::setupDMADescriptors()
     bool result = false;
     
     /* Create transmitter descriptor array. */
-    txBufDesc = IOBufferMemoryDescriptor::inTaskWithPhysicalMask(kernel_task, (kIODirectionInOut | kIOMemoryPhysicallyContiguous | kIOMapInhibitCache), kTxDescSize, 0xFFFFFFFFFFFFF000ULL);
+    txBufDesc = IOBufferMemoryDescriptor::inTaskWithPhysicalMask(kernel_task, (kIODirectionInOut | kIOMemoryPhysicallyContiguous | kIOMemoryHostPhysicallyContiguous | kIOMapInhibitCache), kTxDescSize, 0xFFFFFFFFFFFFF000ULL);
     
     if (!txBufDesc) {
         IOLog("[IntelMausi]: Couldn't alloc txBufDesc.\n");
@@ -360,7 +360,7 @@ bool IntelMausi::setupDMADescriptors()
     txDescArray = (struct e1000_data_desc *)txBufDesc->getBytesNoCopy();
     
     /* I don't know if it's really necessary but the documenation says so and Apple's drivers are also doing it this way. */
-    txDescDmaCmd = IODMACommand::withSpecification(kIODMACommandOutputHost64, 64, 0, IODMACommand::kMapped, 0, 1);
+    txDescDmaCmd = IODMACommand::withSpecification(kIODMACommandOutputHost64, 64, 0, IODMACommand::kMapped, 0, 1, mapper, NULL);
     
     if (!txDescDmaCmd) {
         IOLog("[IntelMausi]: Couldn't alloc txDescDmaCmd.\n");
@@ -397,7 +397,7 @@ bool IntelMausi::setupDMADescriptors()
     }
     
     /* Create receiver descriptor array. */
-    rxBufDesc = IOBufferMemoryDescriptor::inTaskWithPhysicalMask(kernel_task, (kIODirectionInOut | kIOMemoryPhysicallyContiguous | kIOMapInhibitCache), kRxDescSize, 0xFFFFFFFFFFFFF000ULL);
+    rxBufDesc = IOBufferMemoryDescriptor::inTaskWithPhysicalMask(kernel_task, (kIODirectionInOut | kIOMemoryPhysicallyContiguous | kIOMemoryHostPhysicallyContiguous | kIOMapInhibitCache), kRxDescSize, 0xFFFFFFFFFFFFF000ULL);
     
     if (!rxBufDesc) {
         IOLog("[IntelMausi]: Couldn't alloc rxBufDesc.\n");
@@ -411,7 +411,7 @@ bool IntelMausi::setupDMADescriptors()
     rxDescArray = (union e1000_rx_desc_extended *)rxBufDesc->getBytesNoCopy();
     
     /* I don't know if it's really necessary but the documenation says so and Apple's drivers are also doing it this way. */
-    rxDescDmaCmd = IODMACommand::withSpecification(kIODMACommandOutputHost64, 64, 0, IODMACommand::kMapped, 0, 1);
+    rxDescDmaCmd = IODMACommand::withSpecification(kIODMACommandOutputHost64, 64, 0, IODMACommand::kMapped, 0, 1, mapper, NULL);
     
     if (!rxDescDmaCmd) {
         IOLog("[IntelMausi]: Couldn't alloc rxDescDmaCmd.\n");
