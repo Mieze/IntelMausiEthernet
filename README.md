@@ -6,7 +6,7 @@ Please refer to the driver's thread on insanelymac.com
 
 https://www.insanelymac.com/forum/topic/304235-intelmausiethernetkext-for-intel-onboard-lan/
 
-in case you have further questions, need support or want to submit a problem report. Support requests here on Github will be ignored!
+in case you have further questions, need support or want to submit a problem report. Prebuilt binaries can also be found there. Support requests here on Github will be ignored!
 
 # Project Description
 A few days before Christmas I started my latest project, a new driver for recent Intel onboard LAN controllers. My intention was not to replace hnak's AppleIntelE1000e.kext completely but to deliver best performance and stability on recent hardware. That's why I dropped support for a number of older NICs. Currently the driver supports:
