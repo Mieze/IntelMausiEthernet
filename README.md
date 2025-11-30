@@ -1,14 +1,14 @@
 # IntelMausiEthernet
 OS X driver for Intel onboard LAN
 
-# Support
+**Support**
 Please refer to the driver's thread on insanelymac.com
 
 https://www.insanelymac.com/forum/topic/304235-intelmausiethernetkext-for-intel-onboard-lan/
 
-in case you have further questions, need support or want to submit a problem report. Prebuilt binaries can also be found there. Support requests here on Github will be ignored!
+in case you have further questions, need support or want to submit a problem report. Prebuilt binaries can also be found there.
 
-# Project Description
+**Project Description**
 A few days before Christmas I started my latest project, a new driver for recent Intel onboard LAN controllers. My intention was not to replace hnak's AppleIntelE1000e.kext completely but to deliver best performance and stability on recent hardware. That's why I dropped support for a number of older NICs. Currently the driver supports:
  
 - 5 Series
@@ -39,14 +39,27 @@ A few days before Christmas I started my latest project, a new driver for recent
 - 300 Series (since V2.4.0d0)
   - I219LM
   - I219V
+- 400 Series
+  - I219LM
+  - I219V
+- 500 and 600 Series (since V2.5.5d0)
+  - I219LM
+  - I219V
 
-Key Features of the Driver
+**Key Features of the IntelMausiEthernet**
 - Support for multisegment packets relieving the network stack of unnecessary copy operations when assembling packets for transmission.
 - No-copy receive and transmit. Only small packets are copied on reception because creating a copy is more efficient than allocating a new buffer.
 - TCP, UDP and IPv4 checksum offload (receive and transmit).
 - Support for TCP/IPv6 and UDP/IPv6 checksum offload.
 - Makes use of the chip's TCP Segmentation Offload (TSO) feature with IPv4 and IPv6 in order to reduce CPU load while sending large amounts of data (disabled due to hardware bugs).
-- Fully optimized for Yosemite and Mavericks (64bit architecture) but should work with Mountain Lion and Lion too, provided you build from source with the 10.8 or 10.7 SDK.
+- Fully optimized for macOS 10.15 - 26.0.
 - Support for Energy Efficient Ethernet (EEE).
 - VLAN support is implemented but untested as I have no need for it.
+- Support for AppleVTD (since V2.5.5d0).
 - The driver is published under GPLv2.
+
+**Contributions**
+
+If you find my projects useful, please consider to buy me a cup of coffee: https://buymeacoffee.com/mieze
+
+Thank you for your support! Your contribution helps me to continue development.
