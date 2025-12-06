@@ -19,7 +19,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleShortVersionString</key>
-	<string>$(MODULE_VERSION)</string>
+	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(MODULE_VERSION)</string>
 	<key>IOKitPersonalities</key>
@@ -31,6 +31,10 @@
 			<key>Driver Parameters</key>
 			<dict>
 				<key>enableCSO6</key>
+				<true/>
+				<key>enableTSO4</key>
+				<true/>
+				<key>enableTSO6</key>
 				<true/>
 				<key>enableWakeOnAddrMatch</key>
 				<false/>
@@ -55,14 +59,14 @@
 				<key>rxDelayTime1000</key>
 				<integer>0</integer>
 			</dict>
-			<key>Driver_Version</key>
+			<key>DriverVersion</key>
 			<string>$MODULE_VERSION</string>
 			<key>IOClass</key>
 			<string>IntelMausi</string>
 			<key>IOPCIMatch</key>
 			<string>0x10EA8086 0x10EB8086 0x10EF8086 0x10F08086 0x15028086 0x15038086 0x153A8086 0x153B8086 0x155A8086 0x15598086 0x15A08086 0x15A18086 0x15A28086 0x15A38086 0x156F8086 0x15708086 0x15B78086 0x15B88086 0x15D78086 0x15D88086 0x15E38086 0x15D68086 0x15BD8086 0x15BE8086 0x15BB8086 0x15BC8086 0x15DF8086 0x15E08086 0x15E18086 0x15E28086 0x15B98086 0x0D4E8086 0x0D4F8086 0x0D4C8086 0x0D4D8086 0x0D538086 0x0D558086 0x15FB8086 0x15FC8086 0x15F98086 0x15FA8086 0x15F48086 0x15F58086 0x0DC58086 0x0DC68086 0x1A1E8086 0x1A1F8086 0x1A1C8086 0x1A1D8086 0x0DC78086 0x0DC88086 0x550A8086 0x550B8086 0x550C8086 0x550D8086 0x550E8086 0x550F8086 0x55108086 0x55118086</string>
 			<key>IOProbeScore</key>
-			<integer>2000</integer>
+			<integer>5000</integer>
 			<key>IOProviderClass</key>
 			<string>IOPCIDevice</string>
 		</dict>

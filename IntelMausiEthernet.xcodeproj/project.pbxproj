@@ -3,10 +3,14 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 46;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXBuildFile section */
+		D3090DF92EDF724000E9224D /* IntelMausiVTD.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D3090DF82EDF724000E9224D /* IntelMausiVTD.cpp */; };
+		D3090DFC2EDF732000E9224D /* MausiRxPool.hpp in Headers */ = {isa = PBXBuildFile; fileRef = D3090DFA2EDF732000E9224D /* MausiRxPool.hpp */; };
+		D3090DFD2EDF732000E9224D /* MausiRxPool.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D3090DFB2EDF732000E9224D /* MausiRxPool.cpp */; };
+		D3090E022EDFAD9D00E9224D /* libkmod.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D3090E012EDFAD9D00E9224D /* libkmod.a */; };
 		D36B90EE1C41CA4200C1EB37 /* ich8lan.c in Sources */ = {isa = PBXBuildFile; fileRef = D36B90DA1C41BF0B00C1EB37 /* ich8lan.c */; };
 		D36B90F51C41CA5200C1EB37 /* mac.c in Sources */ = {isa = PBXBuildFile; fileRef = D36B90DC1C41BF0B00C1EB37 /* mac.c */; };
 		D36B90F91C41CA7D00C1EB37 /* manage.c in Sources */ = {isa = PBXBuildFile; fileRef = D36B90DE1C41BF0B00C1EB37 /* manage.c */; };
@@ -29,6 +33,10 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		D3090DF82EDF724000E9224D /* IntelMausiVTD.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = IntelMausiVTD.cpp; sourceTree = "<group>"; };
+		D3090DFA2EDF732000E9224D /* MausiRxPool.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = MausiRxPool.hpp; sourceTree = "<group>"; };
+		D3090DFB2EDF732000E9224D /* MausiRxPool.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = MausiRxPool.cpp; sourceTree = "<group>"; };
+		D3090E012EDFAD9D00E9224D /* libkmod.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libkmod.a; path = usr/lib/libkmod.a; sourceTree = SDKROOT; };
 		D31D52021A566D8000DD1F17 /* IntelMausiSetup.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IntelMausiSetup.cpp; sourceTree = "<group>"; };
 		D31D52061A566F4800DD1F17 /* IntelMausiHardware.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IntelMausiHardware.cpp; sourceTree = "<group>"; };
 		D36B90D61C41BF0B00C1EB37 /* defines.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = defines.h; sourceTree = "<group>"; };
@@ -49,12 +57,7 @@
 		D36B90E51C41BF0B00C1EB37 /* phy.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = phy.h; sourceTree = "<group>"; };
 		D36B90E61C41BF0B00C1EB37 /* ptp.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = ptp.c; sourceTree = "<group>"; };
 		D36B90E71C41BF0B00C1EB37 /* regs.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = regs.h; sourceTree = "<group>"; };
-		D38D864D2443A69F00D94935 /* kpi_interface.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = kpi_interface.h; sourceTree = "<group>"; };
-		D38D864E2443A6D700D94935 /* kpi_mbuf.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = kpi_mbuf.h; sourceTree = "<group>"; };
-		D38D864F2443A77200D94935 /* IOEthernetInterface.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOEthernetInterface.h; sourceTree = "<group>"; };
-		D38D86502443A77200D94935 /* IOEthernetController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOEthernetController.h; sourceTree = "<group>"; };
-		D3CB5B7A1A4394A800A37FAA /* Kernel.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kernel.framework; path = System/Library/Frameworks/Kernel.framework; sourceTree = SDKROOT; };
-		D3CB5B7D1A4394A800A37FAA /* IntelMausiEthernet-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "IntelMausiEthernet-Info.plist"; sourceTree = "<group>"; };
+		D3CB5B7D1A4394A800A37FAA /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		D3CB5B811A4394A800A37FAA /* IntelMausiEthernet.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IntelMausiEthernet.h; sourceTree = "<group>"; };
 		D3CB5B821A4394A800A37FAA /* IntelMausiEthernet.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = IntelMausiEthernet.cpp; sourceTree = "<group>"; };
 		D3CB5B8A1A4395E400A37FAA /* gpl.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = gpl.txt; sourceTree = "<group>"; };
@@ -70,8 +73,6 @@
 		D3CB5BCC1A43A18B00A37FAA /* uapi-pci_regs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "uapi-pci_regs.h"; sourceTree = "<group>"; };
 		D3F318C21AB3B0E300DA9D9A /* IntelMausiEthernet.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IntelMausiEthernet.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		D3F318C41AB3B14E00DA9D9A /* IntelMausiEthernetV2-Prefix.pch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "IntelMausiEthernetV2-Prefix.pch"; sourceTree = "<group>"; };
-		D3F318C61AB3B57D00DA9D9A /* IONetworkController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IONetworkController.h; sourceTree = "<group>"; };
-		D3F318C71AB3B57D00DA9D9A /* IONetworkInterface.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IONetworkInterface.h; sourceTree = "<group>"; };
 		D3F318C81AB3B58A00DA9D9A /* APPLE_LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = APPLE_LICENSE; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -80,6 +81,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D3090E022EDFAD9D00E9224D /* libkmod.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -131,17 +133,9 @@
 		D3CB5B781A4394A800A37FAA /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				D3CB5B791A4394A800A37FAA /* Other Frameworks */,
+				D3090E012EDFAD9D00E9224D /* libkmod.a */,
 			);
 			name = Frameworks;
-			sourceTree = "<group>";
-		};
-		D3CB5B791A4394A800A37FAA /* Other Frameworks */ = {
-			isa = PBXGroup;
-			children = (
-				D3CB5B7A1A4394A800A37FAA /* Kernel.framework */,
-			);
-			name = "Other Frameworks";
 			sourceTree = "<group>";
 		};
 		D3CB5B7B1A4394A800A37FAA /* IntelMausiEthernet */ = {
@@ -151,8 +145,11 @@
 				D3CB5B821A4394A800A37FAA /* IntelMausiEthernet.cpp */,
 				D31D52021A566D8000DD1F17 /* IntelMausiSetup.cpp */,
 				D31D52061A566F4800DD1F17 /* IntelMausiHardware.cpp */,
+				D3090DF82EDF724000E9224D /* IntelMausiVTD.cpp */,
+				D3090DFA2EDF732000E9224D /* MausiRxPool.hpp */,
+				D3090DFB2EDF732000E9224D /* MausiRxPool.cpp */,
+				D3CB5B7D1A4394A800A37FAA /* Info.plist */,
 				D36B90D51C41BF0B00C1EB37 /* Intel E1000e */,
-				D3F3189C1AB3B0CB00DA9D9A /* Apple Headers */,
 				D3CB5B8C1A43968000A37FAA /* Linux Compatibility */,
 				D3CB5B8A1A4395E400A37FAA /* gpl.txt */,
 				D3F318C81AB3B58A00DA9D9A /* APPLE_LICENSE */,
@@ -164,7 +161,6 @@
 		D3CB5B7C1A4394A800A37FAA /* Supporting Files */ = {
 			isa = PBXGroup;
 			children = (
-				D3CB5B7D1A4394A800A37FAA /* IntelMausiEthernet-Info.plist */,
 				D3F318C41AB3B14E00DA9D9A /* IntelMausiEthernetV2-Prefix.pch */,
 			);
 			name = "Supporting Files";
@@ -187,19 +183,6 @@
 			name = "Linux Compatibility";
 			sourceTree = "<group>";
 		};
-		D3F3189C1AB3B0CB00DA9D9A /* Apple Headers */ = {
-			isa = PBXGroup;
-			children = (
-				D38D86502443A77200D94935 /* IOEthernetController.h */,
-				D38D864F2443A77200D94935 /* IOEthernetInterface.h */,
-				D3F318C61AB3B57D00DA9D9A /* IONetworkController.h */,
-				D3F318C71AB3B57D00DA9D9A /* IONetworkInterface.h */,
-				D38D864D2443A69F00D94935 /* kpi_interface.h */,
-				D38D864E2443A6D700D94935 /* kpi_mbuf.h */,
-			);
-			name = "Apple Headers";
-			sourceTree = "<group>";
-		};
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
@@ -211,6 +194,7 @@
 				D3F318B11AB3B0E300DA9D9A /* if_ether.h in Headers */,
 				D3F318B21AB3B0E300DA9D9A /* mdio.h in Headers */,
 				D3F318B31AB3B0E300DA9D9A /* uapi-mii.h in Headers */,
+				D3090DFC2EDF732000E9224D /* MausiRxPool.hpp in Headers */,
 				D3F318B41AB3B0E300DA9D9A /* ethtool.h in Headers */,
 				D3F318B51AB3B0E300DA9D9A /* linux.h in Headers */,
 				D3F318B61AB3B0E300DA9D9A /* uapi-ip.h in Headers */,
@@ -231,7 +215,6 @@
 				D3F318A81AB3B0E300DA9D9A /* Frameworks */,
 				D3F318A91AB3B0E300DA9D9A /* Headers */,
 				D3F318BD1AB3B0E300DA9D9A /* Resources */,
-				D3F318BE1AB3B0E300DA9D9A /* Rez */,
 			);
 			buildRules = (
 			);
@@ -248,7 +231,8 @@
 		D3CB5B6C1A4394A800A37FAA /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 1200;
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1620;
 				ORGANIZATIONNAME = "Laura Müller";
 			};
 			buildConfigurationList = D3CB5B6F1A4394A800A37FAA /* Build configuration list for PBXProject "IntelMausiEthernet" */;
@@ -279,16 +263,6 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
-/* Begin PBXRezBuildPhase section */
-		D3F318BE1AB3B0E300DA9D9A /* Rez */ = {
-			isa = PBXRezBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXRezBuildPhase section */
-
 /* Begin PBXSourcesBuildPhase section */
 		D3F3189E1AB3B0E300DA9D9A /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -298,7 +272,9 @@
 				D3F3189F1AB3B0E300DA9D9A /* IntelMausiEthernet.cpp in Sources */,
 				D36B90F51C41CA5200C1EB37 /* mac.c in Sources */,
 				D36B91031C41CAB900C1EB37 /* phy.c in Sources */,
+				D3090DFD2EDF732000E9224D /* MausiRxPool.cpp in Sources */,
 				D3F318A21AB3B0E300DA9D9A /* IntelMausiHardware.cpp in Sources */,
+				D3090DF92EDF724000E9224D /* IntelMausiVTD.cpp in Sources */,
 				D3F318A61AB3B0E300DA9D9A /* IntelMausiSetup.cpp in Sources */,
 				D36B90FF1C41CA9A00C1EB37 /* nvm.c in Sources */,
 				D36B90F91C41CA7D00C1EB37 /* manage.c in Sources */,
@@ -313,9 +289,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD)";
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
-				CLANG_CXX_LIBRARY = "libc++";
+				ARCHS = x86_64;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
@@ -332,15 +307,18 @@
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu99;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_CPP_EXCEPTIONS = NO;
 				GCC_ENABLE_CPP_RTTI = NO;
@@ -354,12 +332,15 @@
 				);
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				KERNEL_EXTENSION_HEADER_SEARCH_PATHS = "$(PROJECT_DIR)/MacKernelSDK/Headers";
+				KERNEL_FRAMEWORK_HEADERS = "$(PROJECT_DIR)/MacKernelSDK/Headers";
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
 			};
@@ -369,9 +350,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD)";
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
-				CLANG_CXX_LIBRARY = "libc++";
+				ARCHS = x86_64;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
@@ -388,28 +368,34 @@
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = YES;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu99;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_ENABLE_CPP_EXCEPTIONS = NO;
 				GCC_ENABLE_CPP_RTTI = NO;
 				GCC_ENABLE_KERNEL_DEVELOPMENT = YES;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				KERNEL_EXTENSION_HEADER_SEARCH_PATHS = "$(PROJECT_DIR)/MacKernelSDK/Headers";
+				KERNEL_FRAMEWORK_HEADERS = "$(PROJECT_DIR)/MacKernelSDK/Headers";
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				SDKROOT = macosx;
 			};
 			name = Release;
@@ -420,23 +406,26 @@
 				CLANG_ANALYZER_DEADCODE_DEADSTORES = NO;
 				CLANG_ANALYZER_DIVIDE_BY_ZERO = NO;
 				CLANG_ANALYZER_NULL_DEREFERENCE = NO;
-				CLANG_CXX_LANGUAGE_STANDARD = "compiler-default";
-				CLANG_CXX_LIBRARY = "compiler-default";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
 				CLANG_ENABLE_MODULES = NO;
 				CLANG_ENABLE_OBJC_ARC = NO;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 2.5.5d0;
+				CURRENT_PROJECT_VERSION = 3.0.2;
+				DEAD_CODE_STRIPPING = YES;
 				GCC_CW_ASM_SYNTAX = NO;
+				GCC_C_LANGUAGE_STANDARD = c17;
 				GCC_ENABLE_OBJC_EXCEPTIONS = NO;
 				GCC_LINK_WITH_DYNAMIC_LIBRARIES = NO;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "IntelMausiEthernet/IntelMausiEthernetV2-Prefix.pch";
-				INFOPLIST_FILE = "IntelMausiEthernet/IntelMausiEthernet-Info.plist";
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
-				MARKETING_VERSION = 2.5.5d0;
+				INFOPLIST_FILE = IntelMausiEthernet/Info.plist;
+				KERNEL_EXTENSION_HEADER_SEARCH_PATHS = "$(PROJECT_DIR)/MacKernelSDK/Headers";
+				KERNEL_FRAMEWORK_HEADERS = "$(PROJECT_DIR)/MacKernelSDK/Headers";
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MARKETING_VERSION = 3.0.0;
 				MODULE_NAME = com.insanelymac.IntelMausiEthernet;
-				MODULE_VERSION = 2.5.5d0;
+				MODULE_VERSION = "$(CURRENT_PROJECT_VERSION)";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.insanelymac.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = IntelMausiEthernet;
 				RUN_CLANG_STATIC_ANALYZER = YES;
@@ -448,23 +437,26 @@
 		D3F318C11AB3B0E300DA9D9A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CLANG_CXX_LANGUAGE_STANDARD = "compiler-default";
-				CLANG_CXX_LIBRARY = "compiler-default";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
 				CLANG_ENABLE_MODULES = NO;
 				CLANG_ENABLE_OBJC_ARC = NO;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 2.5.5d0;
+				CURRENT_PROJECT_VERSION = 3.0.2;
+				DEAD_CODE_STRIPPING = YES;
 				GCC_CW_ASM_SYNTAX = NO;
+				GCC_C_LANGUAGE_STANDARD = c17;
 				GCC_ENABLE_OBJC_EXCEPTIONS = NO;
 				GCC_LINK_WITH_DYNAMIC_LIBRARIES = NO;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "IntelMausiEthernet/IntelMausiEthernetV2-Prefix.pch";
-				INFOPLIST_FILE = "IntelMausiEthernet/IntelMausiEthernet-Info.plist";
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
-				MARKETING_VERSION = 2.5.5d0;
+				INFOPLIST_FILE = IntelMausiEthernet/Info.plist;
+				KERNEL_EXTENSION_HEADER_SEARCH_PATHS = "$(PROJECT_DIR)/MacKernelSDK/Headers";
+				KERNEL_FRAMEWORK_HEADERS = "$(PROJECT_DIR)/MacKernelSDK/Headers";
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MARKETING_VERSION = 3.0.0;
 				MODULE_NAME = com.insanelymac.IntelMausiEthernet;
-				MODULE_VERSION = 2.5.5d0;
+				MODULE_VERSION = "$(CURRENT_PROJECT_VERSION)";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.insanelymac.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = IntelMausiEthernet;
 				SDKROOT = macosx;

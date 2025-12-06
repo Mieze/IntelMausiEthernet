@@ -21,6 +21,11 @@
 
 #include "IntelMausiEthernet.h"
 
+#pragma mark --- function prototypes ---
+
+static errno_t prepareTSO4(mbuf_t m, UInt32 *mssHeaderSize, UInt32 *payloadSize);
+static errno_t prepareTSO6(mbuf_t m, UInt32 *mssHeaderSize, UInt32 *payloadSize);
+
 #pragma mark --- private data ---
 
 static const struct intelDevice deviceTable[] = {
@@ -159,7 +164,11 @@ bool IntelMausi::init(OSDictionary *properties)
         baseAddr = NULL;
         flashMap = NULL;
         flashAddr = NULL;
-        rxMbufCursor = NULL;
+        rxBufDesc = NULL;
+        rxBufArrayMem = NULL;
+        rxBufArray = NULL;
+        rxMapMem = NULL;
+        rxPool = NULL;
         txMbufCursor = NULL;
         rxPacketHead = NULL;
         rxPacketTail = NULL;
@@ -185,7 +194,10 @@ bool IntelMausi::init(OSDictionary *properties)
         enableWakeS5 = false;
         wolCapable = false;
         wolActive = false;
+        enableTSO4 = false;
+        enableTSO6 = false;
         enableCSO6 = false;
+        useAppleVTD = false;
         pciPMCtrlOffset = 0;
         maxLatency = 0;
     }
@@ -228,7 +240,8 @@ void IntelMausi::free()
     adapterData.hw.flash_address = NULL;
 
     RELEASE(pciDevice);
-    freeDMADescriptors();
+    freeTxResources();
+    freeRxResources();
     
     if (mcAddrList) {
         IOFree(mcAddrList, mcListCount * sizeof(IOEthernetAddress));
@@ -248,7 +261,7 @@ bool IntelMausi::start(IOService *provider)
     result = super::start(provider);
     
     if (!result) {
-        IOLog("[IntelMausi]: IOEthernetController::start failed.\n");
+        IOLog("IOEthernetController::start failed.\n");
         goto done;
     }
     multicastMode = false;
@@ -259,52 +272,54 @@ bool IntelMausi::start(IOService *provider)
     pciDevice = OSDynamicCast(IOPCIDevice, provider);
     
     if (!pciDevice) {
-        IOLog("[IntelMausi]: No provider.\n");
+        IOLog("No provider.\n");
         goto done;
     }
     pciDevice->retain();
     
     if (!pciDevice->open(this)) {
-        IOLog("[IntelMausi]: Failed to open provider.\n");
-        goto error1;
+        IOLog("Failed to open provider.\n");
+        goto error_open;
     }
     mapper = IOMapper::copyMapperForDevice(pciDevice);
 
     if (!initPCIConfigSpace(pciDevice)) {
-        goto error2;
+        goto error_gate;
     }
     getParams();
     
     if (!intelStart()) {
-        goto error2;
-    }    
+        goto error_gate;
+    }
     if (!setupMediumDict()) {
-        IOLog("[IntelMausi]: Failed to setup medium dictionary.\n");
-        goto error2;
+        IOLog("Failed to setup medium dictionary.\n");
+        goto error_gate;
     }
     commandGate = getCommandGate();
     
     if (!commandGate) {
-        IOLog("[IntelMausi]: getCommandGate() failed.\n");
-        goto error2;
+        IOLog("getCommandGate() failed.\n");
+        goto error_gate;
     }
     commandGate->retain();
     
-    if (!setupDMADescriptors()) {
-        IOLog("[IntelMausi]: Error allocating DMA descriptors.\n");
-        goto error3;
+    if (!setupRxResources()) {
+        IOLog("Error allocating rx DMA resources.\n");
+        goto error_rx_dma;
     }
-
+    if (!setupTxResources()) {
+        IOLog("Error allocating tx DMA resources.\n");
+        goto error_tx_dma;
+    }
     if (!initEventSources(provider)) {
-        IOLog("[IntelMausi]: initEventSources() failed.\n");
-        goto error4;
+        IOLog("initEventSources() failed.\n");
+        goto error_event;
     }
-    
     result = attachInterface(reinterpret_cast<IONetworkInterface**>(&netif));
     
     if (!result) {
-        IOLog("[IntelMausi]: attachInterface() failed.\n");
-        goto error4;
+        IOLog("attachInterface() failed.\n");
+        goto error_event;
     }
     pciDevice->close(this);
     result = true;
@@ -312,16 +327,19 @@ bool IntelMausi::start(IOService *provider)
 done:
     return result;
     
-error4:
-    freeDMADescriptors();
+error_event:
+    freeTxResources();
     
-error3:
+error_tx_dma:
+    freeRxResources();
+    
+error_rx_dma:
     RELEASE(commandGate);
     
-error2:
+error_gate:
     pciDevice->close(this);
     
-error1:
+error_open:
     pciDevice->release();
     pciDevice = NULL;
     goto done;
@@ -359,7 +377,8 @@ void IntelMausi::stop(IOService *provider)
     for (i = MEDIUM_INDEX_AUTO; i < MEDIUM_INDEX_COUNT; i++)
         mediumTable[i] = NULL;
     
-    freeDMADescriptors();
+    freeTxResources();
+    freeRxResources();
     
     if (mcAddrList) {
         IOFree(mcAddrList, mcListCount * sizeof(IOEthernetAddress));
@@ -397,10 +416,10 @@ IOReturn IntelMausi::setPowerState(unsigned long powerStateOrdinal, IOService *p
     DebugLog("setPowerState() ===>\n");
     
     if (powerStateOrdinal == powerState) {
-        DebugLog("[IntelMausi]: Already in power state %lu.\n", powerStateOrdinal);
+        DebugLog("Already in power state %lu.\n", powerStateOrdinal);
         goto done;
     }
-    DebugLog("[IntelMausi]: switching to power state %lu.\n", powerStateOrdinal);
+    DebugLog("switching to power state %lu.\n", powerStateOrdinal);
     
     if (powerStateOrdinal == kPowerStateOff)
         commandGate->runAction(setPowerStateSleepAction);
@@ -453,12 +472,12 @@ IOReturn IntelMausi::enable(IONetworkInterface *netif)
     DebugLog("enable() ===>\n");
     
     if (isEnabled) {
-        DebugLog("[IntelMausi]: Interface already enabled.\n");
+        DebugLog("Interface already enabled.\n");
         result = kIOReturnSuccess;
         goto done;
     }
     if (!pciDevice || pciDevice->isOpen()) {
-        IOLog("[IntelMausi]: Unable to open PCI device.\n");
+        IOLog("Unable to open PCI device.\n");
         goto done;
     }
     pciDevice->open(this);
@@ -554,10 +573,10 @@ IOReturn IntelMausi::outputStart(IONetworkInterface *interface, IOOptionBits opt
     count = 0;
     
     if (!(isEnabled && linkUp) || forceReset) {
-        DebugLog("[IntelMausi]: Interface down. Dropping packets.\n");
+        DebugLog("Interface down. Dropping packets.\n");
         goto done;
     }
-    while ((txNumFreeDesc >= (kMaxSegs + kTxSpareDescs)) && (interface->dequeueOutputPackets(1, &m, NULL, NULL, NULL) == kIOReturnSuccess)) {
+    while ((txNumFreeDesc >= (kMaxSegs + 3)) && (interface->dequeueOutputPackets(1, &m, NULL, NULL, NULL) == kIOReturnSuccess)) {
         numDescs = 0;
         cmd = 0;
         opts = (E1000_TXD_CMD_IDE | E1000_TXD_CMD_EOP | E1000_TXD_CMD_IFCS | E1000_TXD_CMD_RS);
@@ -568,48 +587,89 @@ IOReturn IntelMausi::outputStart(IONetworkInterface *interface, IOOptionBits opt
         tcpConfig = 0;
         offloadFlags = 0;
         
-        /* First prepare the header and the command bits. */
-        mbuf_get_csum_requested(m, &offloadFlags, &mss);
+        if (mbuf_get_tso_requested(m, &offloadFlags, &mss)) {
+            DebugLog("mbuf_get_tso_requested() failed. Dropping packet.\n");
+            mbuf_freem_list(m);
+            continue;
+        }
         
-        if (offloadFlags & (kChecksumUDPIPv6 | kChecksumTCPIPv6 | kChecksumIP | kChecksumUDP | kChecksumTCP)) {
+        /* First prepare the header and the command bits. */
+        if (offloadFlags & (MBUF_TSO_IPV4 | MBUF_TSO_IPV6)) {
             numDescs = 1;
-            cmd = (E1000_TXD_CMD_DEXT | E1000_TXD_DTYP_D);
+            opts = E1000_TXD_CMD_IFCS;
             
-            if (offloadFlags & kChecksumTCP) {
+            if (offloadFlags & MBUF_TSO_IPV4) {
+                /* Correct the pseudo header checksum and extract the header size. */
+                if (prepareTSO4(m, &mss, &len))
+                    continue;
+                
+                /* Prepare the context descriptor. */
                 ipConfig = ((kIPv4CSumEnd << 16) | (kIPv4CSumOffset << 8) | kIPv4CSumStart);
                 tcpConfig = ((kTCPv4CSumEnd << 16) | (kTCPv4CSumOffset << 8) | kTCPv4CSumStart);
-                len = (E1000_TXD_CMD_DEXT | E1000_TXD_CMD_IP | E1000_TXD_CMD_TCP);
-                mss = 0;
+                len |= (E1000_TXD_CMD_DEXT | E1000_TXD_CMD_TSE | E1000_TXD_CMD_IP | E1000_TXD_CMD_TCP);
                 
+                //DebugLog("Ethernet [IntelMausi]: TSO4 mssHeaderLen=0x%08x, payload=0x%08x\n", mss, len);
+                
+                /* Setup the command bits for TSO over IPv4. */
+                cmd = (E1000_TXD_CMD_DEXT | E1000_TXD_CMD_TSE | E1000_TXD_DTYP_D);
                 word2 = (E1000_TXD_OPTS_TXSM | E1000_TXD_OPTS_IXSM);
-            } else if (offloadFlags & kChecksumUDP) {
-                ipConfig = ((kIPv4CSumEnd << 16) | (kIPv4CSumOffset << 8) | kIPv4CSumStart);
-                tcpConfig = ((kUDPv4CSumEnd << 16) | (kUDPv4CSumOffset << 8) | kUDPv4CSumStart);
-                len = (E1000_TXD_CMD_DEXT | E1000_TXD_CMD_IP);
-                mss = 0;
+            } else {
+                /* Correct the pseudo header checksum and extract the header size. */
+                if (prepareTSO6(m, &mss, &len))
+                    continue;
                 
-                word2 = (E1000_TXD_OPTS_TXSM | E1000_TXD_OPTS_IXSM);
-            } else if (offloadFlags & kChecksumIP) {
-                ipConfig = ((kIPv4CSumEnd << 16) | (kIPv4CSumOffset << 8) | kIPv4CSumStart);
-                tcpConfig = 0;
-                mss = 0;
-                len = (E1000_TXD_CMD_DEXT | E1000_TXD_CMD_IP);
-                
-                word2 = E1000_TXD_OPTS_IXSM;
-            } else if (offloadFlags & kChecksumTCPIPv6) {
+                /* Prepare the context descriptor. */
                 ipConfig = ((kIPv6CSumEnd << 16) | (kIPv6CSumOffset << 8) | kIPv6CSumStart);
                 tcpConfig = ((kTCPv6CSumEnd << 16) | (kTCPv6CSumOffset << 8) | kTCPv6CSumStart);
-                len = (E1000_TXD_CMD_DEXT | E1000_TXD_CMD_TCP);
-                mss = 0;
+                len |= (E1000_TXD_CMD_DEXT | E1000_TXD_CMD_TSE | E1000_TXD_CMD_TCP);
                 
+                /* Setup the command bits for TSO over IPv6. */
+                cmd = (E1000_TXD_CMD_DEXT | E1000_TXD_CMD_TSE | E1000_TXD_DTYP_D);
                 word2 = E1000_TXD_OPTS_TXSM;
-            } else if (offloadFlags & kChecksumUDPIPv6) {
-                ipConfig = ((kIPv6CSumEnd << 16) | (kIPv6CSumOffset << 8) | kIPv6CSumStart);
-                tcpConfig = ((kUDPv6CSumEnd << 16) | (kUDPv6CSumOffset << 8) | kUDPv6CSumStart);
-                len = E1000_TXD_CMD_DEXT;
-                mss = 0;
+            }
+        } else {
+            mbuf_get_csum_requested(m, &offloadFlags, &mss);
+            
+            if (offloadFlags & (kChecksumUDPIPv6 | kChecksumTCPIPv6 | kChecksumIP | kChecksumUDP | kChecksumTCP)) {
+                numDescs = 1;
+                cmd = (E1000_TXD_CMD_DEXT | E1000_TXD_DTYP_D);
                 
-                word2 = E1000_TXD_OPTS_TXSM;
+                if (offloadFlags & kChecksumTCP) {
+                    ipConfig = ((kIPv4CSumEnd << 16) | (kIPv4CSumOffset << 8) | kIPv4CSumStart);
+                    tcpConfig = ((kTCPv4CSumEnd << 16) | (kTCPv4CSumOffset << 8) | kTCPv4CSumStart);
+                    len = (E1000_TXD_CMD_DEXT | E1000_TXD_CMD_IP | E1000_TXD_CMD_TCP);
+                    mss = 0;
+                    
+                    word2 = (E1000_TXD_OPTS_TXSM | E1000_TXD_OPTS_IXSM);
+                } else if (offloadFlags & kChecksumUDP) {
+                    ipConfig = ((kIPv4CSumEnd << 16) | (kIPv4CSumOffset << 8) | kIPv4CSumStart);
+                    tcpConfig = ((kUDPv4CSumEnd << 16) | (kUDPv4CSumOffset << 8) | kUDPv4CSumStart);
+                    len = (E1000_TXD_CMD_DEXT | E1000_TXD_CMD_IP);
+                    mss = 0;
+                    
+                    word2 = (E1000_TXD_OPTS_TXSM | E1000_TXD_OPTS_IXSM);
+                } else if (offloadFlags & kChecksumIP) {
+                    ipConfig = ((kIPv4CSumEnd << 16) | (kIPv4CSumOffset << 8) | kIPv4CSumStart);
+                    tcpConfig = 0;
+                    mss = 0;
+                    len = (E1000_TXD_CMD_DEXT | E1000_TXD_CMD_IP);
+                    
+                    word2 = E1000_TXD_OPTS_IXSM;
+                } else if (offloadFlags & kChecksumTCPIPv6) {
+                    ipConfig = ((kIPv6CSumEnd << 16) | (kIPv6CSumOffset << 8) | kIPv6CSumStart);
+                    tcpConfig = ((kTCPv6CSumEnd << 16) | (kTCPv6CSumOffset << 8) | kTCPv6CSumStart);
+                    len = (E1000_TXD_CMD_DEXT | E1000_TXD_CMD_TCP);
+                    mss = 0;
+                    
+                    word2 = E1000_TXD_OPTS_TXSM;
+                } else if (offloadFlags & kChecksumUDPIPv6) {
+                    ipConfig = ((kIPv6CSumEnd << 16) | (kIPv6CSumOffset << 8) | kIPv6CSumStart);
+                    tcpConfig = ((kUDPv6CSumEnd << 16) | (kUDPv6CSumOffset << 8) | kUDPv6CSumStart);
+                    len = E1000_TXD_CMD_DEXT;
+                    mss = 0;
+                    
+                    word2 = E1000_TXD_OPTS_TXSM;
+                }
             }
         }
         
@@ -619,13 +679,17 @@ IOReturn IntelMausi::outputStart(IONetworkInterface *interface, IOOptionBits opt
             word2 |= (vlanTag << E1000_TX_FLAGS_VLAN_SHIFT);
         }
         /* Finally get the physical segments. */
-        numSegs = txMbufCursor->getPhysicalSegmentsWithCoalesce(m, &txSegments[0], kMaxSegs);
+        if (useAppleVTD)
+            numSegs = txMapPacket(m, txSegments, kMaxSegs);
+        else
+            numSegs = txMbufCursor->getPhysicalSegmentsWithCoalesce(m, txSegments, kMaxSegs);
+
         numDescs += numSegs;
         
         if (!numSegs) {
-            DebugLog("[IntelMausi]: getPhysicalSegmentsWithCoalesce() failed. Dropping packet.\n");
+            DebugLog("getPhysicalSegmentsWithCoalesce() failed. Dropping packet.\n");
             etherStats->dot3TxExtraEntry.resourceErrors++;
-            freePacket(m);
+            mbuf_freem_list(m);
             continue;
         }
         OSAddAtomic(-numDescs, &txNumFreeDesc);
@@ -652,35 +716,65 @@ IOReturn IntelMausi::outputStart(IONetworkInterface *interface, IOOptionBits opt
             ++index &= kTxDescMask;
         }
         /* And finally fill in the data descriptors. */
-        for (i = 0; i < numSegs; i++) {
-            desc = &txDescArray[index];
-            word1 = (cmd | (txSegments[i].length & 0x000fffff));
-            
-            if (i == lastSeg) {
-                word1 |= opts;
-                txBufArray[index].mbuf = m;
-                txBufArray[index].numDescs = numDescs;
-            } else {
-                txBufArray[index].mbuf = NULL;
-                txBufArray[index].numDescs = 0;
-            }
-            
+        if (offloadFlags & (MBUF_TSO_IPV4 | MBUF_TSO_IPV6)) {
+            for (i = 0; i < numSegs; i++) {
+                desc = &txDescArray[index];
+                word1 = (cmd | (txSegments[i].length & 0x000fffff));
+                
+                if (i == 0) {
+                    word1 |= opts;
+                    txBufArray[index].mbuf = NULL;
+                    txBufArray[index].numDescs = 0;
+                } else if (i == lastSeg) {
+                    word1 |= (E1000_TXD_CMD_IDE | E1000_TXD_CMD_EOP | E1000_TXD_CMD_RS);
+                    txBufArray[index].mbuf = m;
+                    txBufArray[index].numDescs = numDescs;
+                } else {
+                    txBufArray[index].mbuf = NULL;
+                    txBufArray[index].numDescs = 0;
+                }
+                
 #ifdef DEBUG
-            txBufArray[index].pad = (UInt32)txSegments[i].length;
+                txBufArray[index].pad = (UInt32)txSegments[i].length;
 #endif
-            
-            desc->buffer_addr = OSSwapHostToLittleInt64(txSegments[i].location);
-            desc->lower.data = OSSwapHostToLittleInt32(word1);
-            desc->upper.data = OSSwapHostToLittleInt32(word2);
-            
-            ++index &= kTxDescMask;
+                
+                desc->buffer_addr = OSSwapHostToLittleInt64(txSegments[i].location);
+                desc->lower.data = OSSwapHostToLittleInt32(word1);
+                desc->upper.data = OSSwapHostToLittleInt32(word2);
+                
+                ++index &= kTxDescMask;
+            }
+        } else {
+            for (i = 0; i < numSegs; i++) {
+                desc = &txDescArray[index];
+                word1 = (cmd | (txSegments[i].length & 0x000fffff));
+                
+                if (i == lastSeg) {
+                    word1 |= opts;
+                    txBufArray[index].mbuf = m;
+                    txBufArray[index].numDescs = numDescs;
+                } else {
+                    txBufArray[index].mbuf = NULL;
+                    txBufArray[index].numDescs = 0;
+                }
+                
+#ifdef DEBUG
+                txBufArray[index].pad = (UInt32)txSegments[i].length;
+#endif
+                
+                desc->buffer_addr = OSSwapHostToLittleInt64(txSegments[i].location);
+                desc->lower.data = OSSwapHostToLittleInt32(word1);
+                desc->upper.data = OSSwapHostToLittleInt32(word2);
+                
+                ++index &= kTxDescMask;
+            }
         }
         count++;
     }
     if (count)
         intelUpdateTxDescTail(txNextDescIndex);
     
-    result = (txNumFreeDesc >= (kMaxSegs + kTxSpareDescs)) ? kIOReturnSuccess : kIOReturnNoResources;
+    result = (txNumFreeDesc >= (kMaxSegs + 3)) ? kIOReturnSuccess : kIOReturnNoResources;
     
     //DebugLog("outputStart() <===\n");
     
@@ -746,7 +840,7 @@ bool IntelMausi::configureInterface(IONetworkInterface *interface)
         netStats = (IONetworkStats *)data->getBuffer();
         
         if (!netStats) {
-            IOLog("[IntelMausi]: Error getting IONetworkStats\n.");
+            IOLog("Error getting IONetworkStats\n.");
             result = false;
             goto done;
         }
@@ -758,7 +852,7 @@ bool IntelMausi::configureInterface(IONetworkInterface *interface)
         etherStats = (IOEthernetStats *)data->getBuffer();
         
         if (!etherStats) {
-            IOLog("[IntelMausi]: Error getting IOEthernetStats\n.");
+            IOLog("Error getting IOEthernetStats\n.");
             result = false;
             goto done;
         }
@@ -766,14 +860,14 @@ bool IntelMausi::configureInterface(IONetworkInterface *interface)
     error = interface->configureOutputPullModel(384, 0, 0, IONetworkInterface::kOutputPacketSchedulingModelNormal);
     
     if (error != kIOReturnSuccess) {
-        IOLog("[IntelMausi]: configureOutputPullModel() failed\n.");
+        IOLog("configureOutputPullModel() failed\n.");
         result = false;
         goto done;
     }
     error = interface->configureInputPacketPolling(kNumRxDesc, kIONetworkWorkLoopSynchronous);
     
     if (error != kIOReturnSuccess) {
-        IOLog("[IntelMausi]: configureInputPacketPolling() failed\n.");
+        IOLog("configureInputPacketPolling() failed\n.");
         result = false;
         goto done;
     }
@@ -817,10 +911,10 @@ IOReturn IntelMausi::setPromiscuousMode(bool active)
     rxControl &= ~(E1000_RCTL_UPE | E1000_RCTL_MPE);
 
     if (active) {
-        DebugLog("[IntelMausi]: Promiscuous mode enabled.\n");
+        DebugLog("Promiscuous mode enabled.\n");
         rxControl |= (E1000_RCTL_UPE | E1000_RCTL_MPE);
     } else {
-        DebugLog("[IntelMausi]: Promiscuous mode disabled.\n");
+        DebugLog("Promiscuous mode disabled.\n");
         hw->mac.ops.update_mc_addr_list(hw, (UInt8 *)mcAddrList, mcListCount);
     }
     intelWriteMem32(E1000_RCTL, rxControl);
@@ -922,6 +1016,12 @@ UInt32 IntelMausi::getFeatures() const
     
     DebugLog("getFeatures() ===>\n");
     
+    if (enableTSO4)
+        features |= kIONetworkFeatureTSOIPv4;
+    
+    if (enableTSO6)
+        features |= kIONetworkFeatureTSOIPv6;
+
     DebugLog("getFeatures() <===\n");
     
     return features;
@@ -935,7 +1035,7 @@ IOReturn IntelMausi::setWakeOnMagicPacket(bool active)
     
     if (wolCapable) {
         wolActive = active;
-        DebugLog("[IntelMausi]: Wake on magic packet %s.\n", active ? "enabled" : "disabled");
+        DebugLog("Wake on magic packet %s.\n", active ? "enabled" : "disabled");
         result = kIOReturnSuccess;
     }
     
@@ -954,11 +1054,11 @@ IOReturn IntelMausi::getPacketFilters(const OSSymbol *group, UInt32 *filters) co
         if (enableWoM) {
             *filters = (kIOEthernetWakeOnMagicPacket | kIOEthernetWakeOnPacketAddressMatch);
             
-            DebugLog("[IntelMausi]: kIOEthernetWakeOnMagicPacket and kIOEthernetWakeOnPacketAddressMatch added to filters.\n");
+            DebugLog("kIOEthernetWakeOnMagicPacket and kIOEthernetWakeOnPacketAddressMatch added to filters.\n");
         } else {
             *filters = kIOEthernetWakeOnMagicPacket;
             
-            DebugLog("[IntelMausi]: kIOEthernetWakeOnMagicPacket added to filters.\n");
+            DebugLog("kIOEthernetWakeOnMagicPacket added to filters.\n");
         }
     } else {
         result = super::getPacketFilters(group, filters);
@@ -996,7 +1096,7 @@ IOReturn IntelMausi::getHardwareAddress(IOEthernetAddress *addr)
     
     DebugLog("getHardwareAddress() ===>\n");
     
-    //IOLog("[IntelMausi]: RAH = 0x%x, RAL = 0x%x\n", intelReadMem32(E1000_RAH(0)), intelReadMem32(E1000_RAL(0)));
+    //IOLog("RAH = 0x%x, RAL = 0x%x\n", intelReadMem32(E1000_RAH(0)), intelReadMem32(E1000_RAL(0)));
     
     if (addr) {
         memcpy(&addr->bytes[0], adapterData.hw.mac.addr, kIOEthernetAddressSize);
@@ -1052,7 +1152,7 @@ IOReturn IntelMausi::setMaxPacketSize(UInt32 maxSize)
         mtu = maxSize - (ETH_HLEN + ETH_FCS_LEN);
         adapterData.max_frame_size = maxSize;
 
-        DebugLog("[IntelMausi]: maxSize: %u, mtu: %u\n", maxSize, mtu);
+        DebugLog("maxSize: %u, mtu: %u\n", maxSize, mtu);
         
         /* Force reinitialization. */
         setLinkDown();
@@ -1082,8 +1182,11 @@ void IntelMausi::txInterrupt()
             if (!(descStatus & E1000_TXD_STAT_DD))
                 goto done;
             
+            if (useAppleVTD)
+                txUnmapPacket();
+
             /* First free the attached mbuf and clean up the buffer info. */
-            freePacket(txBufArray[txDirtyIndex].mbuf);
+            mbuf_freem_list(txBufArray[txDirtyIndex].mbuf);
             txBufArray[txDirtyIndex].mbuf = NULL;
             
             cleaned = txBufArray[txDirtyIndex].numDescs;
@@ -1097,7 +1200,7 @@ void IntelMausi::txInterrupt()
         ++txDirtyIndex &= kTxDescMask;
     }
 
-    //DebugLog("[IntelMausi]: txInterrupt oldIndex=%u newIndex=%u\n", oldDirtyIndex, txDirtyDescIndex);
+    //DebugLog("txInterrupt oldIndex=%u newIndex=%u\n", oldDirtyIndex, txDirtyDescIndex);
     
 done:
     if (txNumFreeDesc > kTxQueueWakeTreshhold)
@@ -1106,14 +1209,12 @@ done:
 
 UInt32 IntelMausi::rxInterrupt(IONetworkInterface *interface, uint32_t maxCount, IOMbufQueue *pollQueue, void *context)
 {
-    IOPhysicalSegment rxSegment;
     union e1000_rx_desc_extended *desc = &rxDescArray[rxNextDescIndex];
     mbuf_t bufPkt, newPkt;
     UInt64 addr;
     UInt32 status;
     UInt32 goodPkts = 0;
     UInt32 pktSize;
-    UInt32 n;
     UInt16 vlanTag;
     bool replaced;
     
@@ -1125,16 +1226,16 @@ UInt32 IntelMausi::rxInterrupt(IONetworkInterface *interface, uint32_t maxCount,
         
         /* Skip bad packet. */
         if (status & E1000_RXDEXT_ERR_FRAME_ERR_MASK) {
-            DebugLog("[IntelMausi]: Bad packet.\n");
+            DebugLog("Bad packet.\n");
             etherStats->dot3StatsEntry.internalMacReceiveErrors++;
             discardPacketFragment();
             goto nextDesc;
         }
-        newPkt = replaceOrCopyPacket(&bufPkt, pktSize, &replaced);
+        newPkt = rxPool->replaceOrCopyPacket(&bufPkt, pktSize, &replaced);
         
         if (!newPkt) {
             /* Allocation of a new packet failed so that we must leave the original packet in place. */
-            //DebugLog("[IntelMausi]: replaceOrCopyPacket() failed.\n");
+            DebugLog("replaceOrCopyPacket() failed.\n");
             etherStats->dot3RxExtraEntry.resourceErrors++;
             discardPacketFragment();
             goto nextDesc;
@@ -1142,17 +1243,15 @@ UInt32 IntelMausi::rxInterrupt(IONetworkInterface *interface, uint32_t maxCount,
         
         /* If the packet was replaced we have to update the descriptor's buffer address. */
         if (replaced) {
-            n = rxMbufCursor->getPhysicalSegments(bufPkt, &rxSegment, 1);
-
-            if ((n != 1) || (rxSegment.location & 0x07ff)) {
-                DebugLog("[IntelMausi]: getPhysicalSegments() failed.\n");
+            if (mbuf_next(bufPkt) != NULL) {
+                DebugLog("getPhysicalSegments() failed.\n");
                 etherStats->dot3RxExtraEntry.resourceErrors++;
-                freePacket(bufPkt);
+                mbuf_freem_list(bufPkt);
                 discardPacketFragment();
                 goto nextDesc;
             }
-            addr = rxSegment.location;
             rxBufArray[rxNextDescIndex].mbuf = bufPkt;
+            addr = mbuf_data_to_physical(mbuf_datastart(bufPkt));
             rxBufArray[rxNextDescIndex].phyAddr = addr;
         }
         /* Set the length of the buffer. */
@@ -1243,7 +1342,7 @@ void IntelMausi::checkLinkStatus()
     /* Now check the link state. */
     link = intelCheckLink(&adapterData);
     
-    DebugLog("[IntelMausi]: checkLinkStatus() returned %u.\n", link);
+    DebugLog("checkLinkStatus() returned %u.\n", link);
 
     if (linkUp) {
         if (link) {
@@ -1295,7 +1394,7 @@ void IntelMausi::interruptOccurred(OSObject *client, IOInterruptEventSource *src
         etherStats->dot3StatsEntry.internalMacReceiveErrors += (pbeccsts & E1000_PBECCSTS_UNCORR_ERR_CNT_MASK) >>E1000_PBECCSTS_UNCORR_ERR_CNT_SHIFT;
         etherStats->dot3TxExtraEntry.resets++;
 
-        IOLog("[IntelMausi]: Uncorrectable ECC error. Reseting chip.\n");
+        IOLog("Uncorrectable ECC error. Reseting chip.\n");
 		intelRestart();
         return;
 	}
@@ -1333,7 +1432,10 @@ void IntelMausi::pollInputPackets(IONetworkInterface *interface, uint32_t maxCou
     //DebugLog("pollInputPackets() ===>\n");
     
     if (polling) {
-        rxInterrupt(interface, maxCount, pollQueue, context);
+        if (useAppleVTD)
+            rxInterruptVTD(interface, maxCount, pollQueue, context);
+        else
+            rxInterrupt(interface, maxCount, pollQueue, context);
         
         /* Finally cleanup the transmitter ring. */
         txInterrupt();
@@ -1369,7 +1471,7 @@ void IntelMausi::setLinkUp()
     e1000e_check_downshift(hw);
     
     if (phy->speed_downgraded)
-        IOLog("[IntelMausi]: Link Speed was downgraded by SmartSpeed\n");
+        IOLog("Link Speed was downgraded by SmartSpeed\n");
     
     /* On supported PHYs, check for duplex mismatch only
      * if link has autonegotiated at 10/100 half
@@ -1382,7 +1484,7 @@ void IntelMausi::setLinkUp()
         e1e_rphy(hw, MII_EXPANSION, &autoneg_exp);
         
         if (!(autoneg_exp & EXPANSION_NWAY))
-            IOLog("[IntelMausi]: Autonegotiated half duplex but link partner cannot autoneg.  Try forcing full duplex if link gets many collisions.\n");
+            IOLog("Autonegotiated half duplex but link partner cannot autoneg.  Try forcing full duplex if link gets many collisions.\n");
     }
     
     /* Get link speed, duplex and flow-control mode. */
@@ -1526,41 +1628,41 @@ void IntelMausi::setLinkUp()
         pollParams.pollIntervalTime = (adapterData.link_speed == SPEED_1000) ? 170000 : 1000000;  /* 170µs / 1ms */
     }
     netif->setPacketPollingParameters(&pollParams, 0);
-    DebugLog("[IntelMausi]: pollIntervalTime: %lluus\n", (pollParams.pollIntervalTime / 1000));
+    DebugLog("pollIntervalTime: %lluus\n", (pollParams.pollIntervalTime / 1000));
 
     /* Start output thread, statistics update and watchdog. */
     netif->startOutputThread();
-    IOLog("[IntelMausi]: Link up on en%u, %s, %s, %s%s\n", netif->getUnitNumber(), speedName, duplexName, flowName, eeeName);
+    IOLog("Link up on en%u, %s, %s, %s%s\n", netif->getUnitNumber(), speedName, duplexName, flowName, eeeName);
 
     if (chipType >= board_pch_lpt)
         setMaxLatency(adapterData.link_speed);
     
-    DebugLog("[IntelMausi]: CTRL=0x%08x\n", intelReadMem32(E1000_CTRL));
-    DebugLog("[IntelMausi]: CTRL_EXT=0x%08x\n", intelReadMem32(E1000_CTRL_EXT));
-    DebugLog("[IntelMausi]: STATUS=0x%08x\n", intelReadMem32(E1000_STATUS));
-    DebugLog("[IntelMausi]: RCTL=0x%08x\n", intelReadMem32(E1000_RCTL));
-    DebugLog("[IntelMausi]: PSRCTL=0x%08x\n", intelReadMem32(E1000_PSRCTL));
-    DebugLog("[IntelMausi]: FCRTL=0x%08x\n", intelReadMem32(E1000_FCRTL));
-    DebugLog("[IntelMausi]: FCRTH=0x%08x\n", intelReadMem32(E1000_FCRTH));
-    DebugLog("[IntelMausi]: RDLEN(0)=0x%08x\n", intelReadMem32(E1000_RDLEN(0)));
-    DebugLog("[IntelMausi]: RDTR=0x%08x\n", intelReadMem32(E1000_RDTR));
-    DebugLog("[IntelMausi]: RADV=0x%08x\n", intelReadMem32(E1000_RADV));
-    DebugLog("[IntelMausi]: RXCSUM=0x%08x\n", intelReadMem32(E1000_RXCSUM));
-    DebugLog("[IntelMausi]: RFCTL=0x%08x\n", intelReadMem32(E1000_RFCTL));
-    DebugLog("[IntelMausi]: RXDCTL(0)=0x%08x\n", intelReadMem32(E1000_RXDCTL(0)));
-    DebugLog("[IntelMausi]: RAL(0)=0x%08x\n", intelReadMem32(E1000_RAL(0)));
-    DebugLog("[IntelMausi]: RAH(0)=0x%08x\n", intelReadMem32(E1000_RAH(0)));
-    DebugLog("[IntelMausi]: MRQC=0x%08x\n", intelReadMem32(E1000_MRQC));
-    DebugLog("[IntelMausi]: TARC(0)=0x%08x\n", intelReadMem32(E1000_TARC(0)));
-    DebugLog("[IntelMausi]: TARC(1)=0x%08x\n", intelReadMem32(E1000_TARC(1)));
-    DebugLog("[IntelMausi]: TCTL=0x%08x\n", intelReadMem32(E1000_TCTL));
-    DebugLog("[IntelMausi]: TXDCTL(0)=0x%08x\n", intelReadMem32(E1000_TXDCTL(0)));
-    DebugLog("[IntelMausi]: TXDCTL(1)=0x%08x\n", intelReadMem32(E1000_TXDCTL(1)));
-    DebugLog("[IntelMausi]: TADV=0x%08x\n", intelReadMem32(E1000_TADV));
-    DebugLog("[IntelMausi]: TIDV=0x%08x\n", intelReadMem32(E1000_TIDV));
-    DebugLog("[IntelMausi]: MANC=0x%08x\n", intelReadMem32(E1000_MANC));
-    DebugLog("[IntelMausi]: MANC2H=0x%08x\n", intelReadMem32(E1000_MANC2H));
-    DebugLog("[IntelMausi]: LTRV=0x%08x\n", intelReadMem32(E1000_LTRV));
+    DebugLog("CTRL=0x%08x\n", intelReadMem32(E1000_CTRL));
+    DebugLog("CTRL_EXT=0x%08x\n", intelReadMem32(E1000_CTRL_EXT));
+    DebugLog("STATUS=0x%08x\n", intelReadMem32(E1000_STATUS));
+    DebugLog("RCTL=0x%08x\n", intelReadMem32(E1000_RCTL));
+    DebugLog("PSRCTL=0x%08x\n", intelReadMem32(E1000_PSRCTL));
+    DebugLog("FCRTL=0x%08x\n", intelReadMem32(E1000_FCRTL));
+    DebugLog("FCRTH=0x%08x\n", intelReadMem32(E1000_FCRTH));
+    DebugLog("RDLEN(0)=0x%08x\n", intelReadMem32(E1000_RDLEN(0)));
+    DebugLog("RDTR=0x%08x\n", intelReadMem32(E1000_RDTR));
+    DebugLog("RADV=0x%08x\n", intelReadMem32(E1000_RADV));
+    DebugLog("RXCSUM=0x%08x\n", intelReadMem32(E1000_RXCSUM));
+    DebugLog("RFCTL=0x%08x\n", intelReadMem32(E1000_RFCTL));
+    DebugLog("RXDCTL(0)=0x%08x\n", intelReadMem32(E1000_RXDCTL(0)));
+    DebugLog("RAL(0)=0x%08x\n", intelReadMem32(E1000_RAL(0)));
+    DebugLog("RAH(0)=0x%08x\n", intelReadMem32(E1000_RAH(0)));
+    DebugLog("MRQC=0x%08x\n", intelReadMem32(E1000_MRQC));
+    DebugLog("TARC(0)=0x%08x\n", intelReadMem32(E1000_TARC(0)));
+    DebugLog("TARC(1)=0x%08x\n", intelReadMem32(E1000_TARC(1)));
+    DebugLog("TCTL=0x%08x\n", intelReadMem32(E1000_TCTL));
+    DebugLog("TXDCTL(0)=0x%08x\n", intelReadMem32(E1000_TXDCTL(0)));
+    DebugLog("TXDCTL(1)=0x%08x\n", intelReadMem32(E1000_TXDCTL(1)));
+    DebugLog("TADV=0x%08x\n", intelReadMem32(E1000_TADV));
+    DebugLog("TIDV=0x%08x\n", intelReadMem32(E1000_TIDV));
+    DebugLog("MANC=0x%08x\n", intelReadMem32(E1000_MANC));
+    DebugLog("MANC2H=0x%08x\n", intelReadMem32(E1000_MANC2H));
+    DebugLog("LTRV=0x%08x\n", intelReadMem32(E1000_LTRV));
 }
 
 void IntelMausi::setLinkDown()
@@ -1580,10 +1682,10 @@ void IntelMausi::setLinkDown()
     clear_bit(__E1000_DOWN, &adapterData.state);
 	intelEnableIRQ(intrMask);
 
-    IOLog("[IntelMausi]: Link down on en%u\n", netif->getUnitNumber());
+    IOLog("Link down on en%u\n", netif->getUnitNumber());
 }
 
-inline void IntelMausi::intelGetChecksumResult(mbuf_t m, UInt32 status)
+void IntelMausi::intelGetChecksumResult(mbuf_t m, UInt32 status)
 {
     if (!(status & (E1000_RXDEXT_STATERR_IPE | E1000_RXDEXT_STATERR_TCPE))) {
         mbuf_csum_performed_flags_t performed = 0;
@@ -1648,7 +1750,7 @@ bool IntelMausi::intelStart()
     bool result = false;
     
     /* Setup some default values. */
-    adapterData.rx_buffer_len = kRxBufferPktSize;
+    adapterData.rx_buffer_len = kRxBufferSize;
 	adapterData.max_frame_size = mtu + ETH_HLEN + ETH_FCS_LEN;
 	adapterData.min_frame_size = ETH_ZLEN + ETH_FCS_LEN;
     
@@ -1687,7 +1789,7 @@ bool IntelMausi::intelStart()
     error = ei->get_variants(&adapterData);
     
 	if (error) {
-        IOLog("[IntelMausi]: Failed to get adapter data with error %d.\n", error);
+        IOLog("Failed to get adapter data with error %d.\n", error);
 		goto done;
     }
 	if ((adapterData.flags & FLAG_IS_ICH) &&
@@ -1704,7 +1806,7 @@ bool IntelMausi::intelStart()
 		hw->phy.ms_type = e1000_ms_hw_default;
 	}
 	if (hw->phy.ops.check_reset_block && hw->phy.ops.check_reset_block(hw))
-		IOLog("[IntelMausi]: PHY reset is blocked due to SOL/IDER session.\n");
+		IOLog("PHY reset is blocked due to SOL/IDER session.\n");
 
     if (intelEnableMngPassThru(hw))
 		adapterData.flags |= FLAG_MNG_PT_ENABLED;
@@ -1722,7 +1824,7 @@ bool IntelMausi::intelStart()
 			break;
         
 		if (i == 2) {
-			IOLog("[IntelMausi]: The NVM Checksum Is Not Valid.\n");
+			IOLog("The NVM Checksum Is Not Valid.\n");
 			goto error_eeprom;
             break;
 		}
@@ -1731,10 +1833,10 @@ bool IntelMausi::intelStart()
     
 	/* copy the MAC address */
 	if (e1000e_read_mac_addr(hw))
-		IOLog("[IntelMausi]: NVM Read Error while reading MAC address.\n");
+		IOLog("NVM Read Error while reading MAC address.\n");
     
 	if (!is_valid_ether_addr(mac->addr)) {
-		IOLog("[IntelMausi]: Invalid MAC Address: %pM\n", mac->addr);
+		IOLog("Invalid MAC Address: %pM\n", mac->addr);
 		goto error_eeprom;
 	}
 	/* Initialize link parameters. User can change them with ethtool */
@@ -1764,7 +1866,7 @@ bool IntelMausi::intelStart()
     
 	/* fetch WoL from EEPROM */
 	if (rval)
-		DebugLog("[IntelMausi]: NVM read error getting WoL initial values: %d\n", rval);
+		DebugLog("NVM read error getting WoL initial values: %d\n", rval);
 	else if (eepromData & eepromApmeMask)
 		adapterData.eeprom_wol |= E1000_WUFC_MAG;
     
@@ -1786,7 +1888,7 @@ bool IntelMausi::intelStart()
 	rval = e1000_read_nvm(hw, 5, 1, &adapterData.eeprom_vers);
     
 	if (rval) {
-		DebugLog("[IntelMausi]: NVM read error getting EEPROM version: %d\n", rval);
+		DebugLog("NVM read error getting EEPROM version: %d\n", rval);
 		adapterData.eeprom_vers = 0;
 	}
 	/* reset the hardware with the new settings */
@@ -1802,7 +1904,7 @@ bool IntelMausi::intelStart()
     if ((hw->mac.type == e1000_pch_lpt) || (hw->mac.type == e1000_pch_spt)) {
         intrMask |= E1000_IMS_ECCER;
     }
-    IOLog("[IntelMausi]: %s (Rev. %u), %02x:%02x:%02x:%02x:%02x:%02x\n",
+    IOLog("%s (Rev. %u), %02x:%02x:%02x:%02x:%02x:%02x\n",
           deviceTable[chip].deviceName, pciDeviceData.revision,
           mac->addr[0], mac->addr[1], mac->addr[2], mac->addr[3], mac->addr[4], mac->addr[5]);
     result = true;
@@ -1824,7 +1926,7 @@ void IntelMausi::timerAction(IOTimerEventSource *timer)
     struct e1000_hw *hw = &adapterData.hw;
 
     if (!linkUp) {
-        DebugLog("[IntelMausi]: Timer fired while link down.\n");
+        DebugLog("Timer fired while link down.\n");
         goto done;
     }
     intelUpdateAdaptive(&adapterData.hw);
@@ -1954,48 +2056,24 @@ bool IntelMausi::checkForDeadlock()
 #endif
             //UInt8 data;
             
-            IOLog("[IntelMausi]: Tx stalled? Resetting chipset. txDirtyDescIndex=%u, STATUS=0x%08x, TCTL=0x%08x.\n", txDirtyIndex, intelReadMem32(E1000_STATUS), intelReadMem32(E1000_TCTL));
+            IOLog("Tx stalled? Resetting chipset. txDirtyDescIndex=%u, STATUS=0x%08x, TCTL=0x%08x.\n", txDirtyIndex, intelReadMem32(E1000_STATUS), intelReadMem32(E1000_TCTL));
 
 #ifdef DEBUG
             for (i = 0; i < 30; i++) {
                 index = ((stalledIndex - 20 + i) & kTxDescMask);
 
-                IOLog("[IntelMausi]: desc[%u]: lower=0x%08x, upper=0x%08x, addr=0x%016llx, mbuf=0x%016llx, len=%u.\n", index, txDescArray[index].lower.data, txDescArray[index].upper.data, txDescArray[index].buffer_addr, (UInt64)txBufArray[index].mbuf, txBufArray[index].pad);
+                IOLog("desc[%u]: lower=0x%08x, upper=0x%08x, addr=0x%016llx, mbuf=0x%016llx, len=%u.\n", index, txDescArray[index].lower.data, txDescArray[index].upper.data, txDescArray[index].buffer_addr, (UInt64)txBufArray[index].mbuf, txBufArray[index].pad);
             }
 #endif
             if (m) {
                 pktSize = (UInt32)mbuf_pkthdr_len(m);
-                IOLog("[IntelMausi]: packet size=%u, header size=%u.\n", pktSize, (UInt32)mbuf_len(m));
-/*
-#ifdef DEBUG
-                IOLog("[IntelMausi]: MAC-header: ");
-                for (i = 0; i < 14; i++) {
-                    mbuf_copydata(m, i, 1, &data);
-                    IOLog(" 0x%02x", data);
-                }
-                IOLog("\n");
-                
-                IOLog("[IntelMausi]: IP-header: ");
-                for (i = 14; i < 34; i++) {
-                    mbuf_copydata(m, i, 1, &data);
-                    IOLog(" 0x%02x", data);
-                }
-                IOLog("\n");
-                
-                IOLog("[IntelMausi]: TCP-Header / Data: ");
-                for (i = 34; i < 100; i++) {
-                    mbuf_copydata(m, i, 1, &data);
-                    IOLog(" 0x%02x", data);
-                }
-                IOLog("\n");
-#endif
-*/
+                IOLog("packet size=%u, header size=%u.\n", pktSize, (UInt32)mbuf_len(m));
             }
             etherStats->dot3TxExtraEntry.resets++;
             intelRestart();
             deadlock = true;
         } else {
-            DebugLog("[IntelMausi]: Check tx ring for progress. txNumFreeDesc=%u\n", txNumFreeDesc);
+            DebugLog("Check tx ring for progress. txNumFreeDesc=%u\n", txNumFreeDesc);
             /* Flush pending tx descriptors. */
             intelFlushDescriptors();
             /* Check the transmitter ring. */
@@ -2005,4 +2083,68 @@ bool IntelMausi::checkForDeadlock()
         deadlockWarn = 0;
     }
     return deadlock;
+}
+
+#pragma mark --- TSO support functions ---
+
+static errno_t prepareTSO4(mbuf_t m, UInt32 *mssHeaderSize, UInt32 *payloadSize)
+{
+    struct iphdr *ipHdr = (struct iphdr *)((UInt8 *)mbuf_data(m) + ETHER_HDR_LEN);
+    struct tcphdr *tcpHdr = (struct tcphdr *)((UInt8 *)ipHdr + sizeof(struct iphdr));
+    UInt16 *addr = (UInt16 *)&ipHdr->saddr;
+    UInt32 csum32 = 6;
+    UInt32 plen = (UInt32)mbuf_pkthdr_len(m);
+    UInt32 hlen = (tcpHdr->th_off << 2) + kMinL4HdrOffsetV4;
+    int i;
+    
+    ipHdr->tot_len = 0;
+
+    for (i = 0; i < 4; i++) {
+        csum32 += ntohs(*addr++);
+        csum32 += (csum32 >> 16);
+        csum32 &= 0xffff;
+    }
+    tcpHdr->th_sum = htons((UInt16)csum32);
+    
+    wmb();
+    
+    *mssHeaderSize = ((*mssHeaderSize << 16) | (hlen << 8));
+    *payloadSize = plen - hlen;
+        
+    i = mbuf_pullup(&m, 16);
+    
+    if (i) {
+        DebugLog("tcp_len(): %d, mbuf_pullup(): %d \n", (int)(tcpHdr->th_off << 2), i);
+    }
+
+    return i;
+}
+
+static errno_t prepareTSO6(mbuf_t m, UInt32 *mssHeaderSize, UInt32 *payloadSize)
+{
+    struct ip6_hdr *ip6Hdr = (struct ip6_hdr *)((UInt8 *)mbuf_data(m) + ETHER_HDR_LEN);
+    struct tcphdr *tcpHdr = (struct tcphdr *)((UInt8 *)ip6Hdr + sizeof(struct ip6_hdr));
+    UInt16 *addr = (UInt16 *)&ip6Hdr->ip6_src;
+    UInt32 csum32 = 6;
+    UInt32 hlen = (tcpHdr->th_off << 2) + kMinL4HdrOffsetV6;
+    UInt32 i;
+    
+    ip6Hdr->ip6_ctlun.ip6_un1.ip6_un1_plen = 0;
+
+    for (i = 0; i < 16; i++) {
+        csum32 += ntohs(*addr++);
+        csum32 += (csum32 >> 16);
+        csum32 &= 0xffff;
+    }
+    /* Fill in the pseudo header checksum for TSOv6. */
+    tcpHdr->th_sum = htons((UInt16)csum32);
+
+    wmb();
+    
+    *mssHeaderSize = ((*mssHeaderSize << 16) | (hlen << 8));
+    *payloadSize = (UInt32)mbuf_pkthdr_len(m) - hlen;
+    
+    i = mbuf_pullup(&m, 16);
+    
+    return i;
 }

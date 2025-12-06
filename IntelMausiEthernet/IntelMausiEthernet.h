@@ -18,6 +18,8 @@
  * This driver is based on Intel's E1000e driver for Linux.
  */
 
+#include "MausiRxPool.hpp"
+
 extern "C" {
     #include "e1000.h"
 }
@@ -37,8 +39,6 @@ extern "C" {
 #define intelReadMem16(reg)             OSReadLittleInt16((baseAddr), (reg))
 #define intelReadMem32(reg)             OSReadLittleInt32((baseAddr), (reg))
 #define intelFlush()                    OSReadLittleInt32((baseAddr), (E1000_STATUS))
-
-#define super IOEthernetController
 
 enum
 {
@@ -81,13 +81,11 @@ enum {
 
 #define kTransmitQueueCapacity  1000
 
-/* With up to 40 segments we should be on the save side. */
-#define kMaxSegs 40
-
-#define kTxSpareDescs   16
+/* With up to 32 segments we should be on the save side. */
+#define kMaxSegs 32
 
 /* The number of descriptors must be a power of 2. */
-#define kNumTxDesc      1024    /* Number of Tx descriptors */
+#define kNumTxDesc      512    /* Number of Tx descriptors */
 #define kNumRxDesc      512     /* Number of Rx descriptors */
 #define kTxLastDesc    (kNumTxDesc - 1)
 #define kRxLastDesc    (kNumRxDesc - 1)
@@ -95,20 +93,40 @@ enum {
 #define kRxDescMask    (kNumRxDesc - 1)
 #define kTxDescSize    (kNumTxDesc*sizeof(struct e1000_data_desc))
 #define kRxDescSize    (kNumRxDesc*sizeof(union e1000_rx_desc_extended))
+#define kRxBufArraySize (kNumRxDesc * sizeof(intelRxBufferInfo))
+#define kTxBufArraySize (kNumTxDesc * sizeof(intelTxBufferInfo))
+
+/* Numbers of IOMemoryDescriptors and IORanges for tx */
+#define kNumTxMemDesc       (kNumTxDesc / 2)
+#define kTxMemDescMask      (kNumTxMemDesc - 1)
+#define kNumTxRanges        (kNumTxDesc + kMaxSegs)
+#define kTxRangeMask        kTxDescMask
+#define kTxMapMemSize       sizeof(struct intelTxMapInfo)
+
+/* Numbers of IOMemoryDescriptors and batch size for rx */
+#define kRxMemBaseShift 4
+#define kNumRxMemDesc   (kNumRxDesc >> kRxMemBaseShift)
+#define kRxMapMemSize   (sizeof(struct intelRxMapInfo))
+#define kRxMemBatchSize (kNumRxDesc / kNumRxMemDesc)
+#define kRxMemDescMask  (kRxMemBatchSize - 1)
+#define kRxMemBaseMask  ~kRxMemDescMask
 
 /* This is the receive buffer size (must be large enough to hold a packet). */
-#define kRxBufferPktSize 2048
-#define kRxNumSpareMbufs 100
-#define kMCFilterLimit 32
-#define kMaxRxQueques 1
-#define kMaxMtu 9000
-#define kMaxPacketSize (kMaxMtu + ETH_HLEN + ETH_FCS_LEN)
+#define kRxBufferSize   PAGE_SIZE
+#define kMCFilterLimit  32
+#define kMaxRxQueques   1
+#define kMaxMtu         9000
+#define kMaxPacketSize  (kMaxMtu + ETH_HLEN + ETH_FCS_LEN)
+
+/* MausiRxPool capacities */
+#define kRxPoolClstCap   100    /* mbufs with 4k cluster*/
+#define kRxPoolMbufCap   50     /* mbufs without clusters */
 
 /* statitics timer period in ms. */
 #define kTimeoutMS 1000
 
 /* Treshhold value to wake a stalled queue */
-#define kTxQueueWakeTreshhold (kNumTxDesc / 4)
+#define kTxQueueWakeTreshhold (kNumTxDesc / 8)
 
 /* transmitter deadlock treshhold in seconds. */
 #define kTxDeadlockTreshhold 2
@@ -234,13 +252,15 @@ enum
 };
 
 #define kParamName "Driver Parameters"
+#define kEnableTSO4Name "enableTSO4"
+#define kEnableTSO6Name "enableTSO6"
 #define kEnableCSO6Name "enableCSO6"
 #define kEnableWoMName "enableWakeOnAddrMatch"
 #define kEnableWakeS5Name "enableWakeS5"
 #define kIntrRate10Name "maxIntrRate10"
 #define kIntrRate100Name "maxIntrRate100"
 #define kIntrRate1000Name "maxIntrRate1000"
-#define kDriverVersionName "Driver_Version"
+#define kDriverVersionName "DriverVersion"
 #define kNameLenght 64
 
 #define kRxAbsTime10Name "rxAbsTime10"
@@ -260,15 +280,40 @@ struct intelDevice {
 
 #define kInvalidRingIndex 0xffffffff;
 
-struct intelTxBufferInfo {
+typedef struct intelTxBufferInfo {
     mbuf_t mbuf;
     UInt32 numDescs;
     UInt32 pad;
-};
-struct intelRxBufferInfo {
+} intelTxBufferInfo;
+
+typedef struct intelRxBufferInfo {
     mbuf_t mbuf;
     IOPhysicalAddress64 phyAddr;
+} intelRxBufferInfo;
+
+/*
+ * Indicates if a tx IOMemoryDescriptor is in the prepared
+ * (active) or completed state (inactive).
+ */
+enum
+{
+    kIOMemoryInactive = 0,
+    kIOMemoryActive = 1
 };
+
+typedef struct intelTxMapInfo {
+    UInt16 txNextMem2Use;
+    UInt16 txNextMem2Free;
+    SInt16 txNumFreeMem;
+    IOMemoryDescriptor *txMemIO[kNumTxMemDesc];
+    IOAddressRange txMemRange[kNumTxRanges];
+    IOAddressRange txSCRange[kMaxSegs];
+} intelTxMapInfo;
+
+typedef struct intelRxMapInfo {
+    IOMemoryDescriptor *rxMemIO[kNumRxMemDesc];
+    IOAddressRange rxMemRange[kNumRxDesc];
+} intelRxMapInfo;
 
 struct IntelRxDesc {
     UInt64 bufferAddr;
@@ -296,6 +341,34 @@ struct IntelAddrData {
     UInt32 ipV4Addr[kMaxAddrV4];
 };
 
+/**
+ *  Known kernel versions
+ */
+enum KernelVersion {
+    Tiger         = 8,
+    Leopard       = 9,
+    SnowLeopard   = 10,
+    Lion          = 11,
+    MountainLion  = 12,
+    Mavericks     = 13,
+    Yosemite      = 14,
+    ElCapitan     = 15,
+    Sierra        = 16,
+    HighSierra    = 17,
+    Mojave        = 18,
+    Catalina      = 19,
+    BigSur        = 20,
+    Monterey      = 21,
+    Ventura       = 22,
+    Sonoma        = 23,
+    Sequoia       = 24,
+    Tahoe         = 25,
+};
+
+extern const int version_major;
+
+#define super IOEthernetController
+
 class IntelMausi : public super
 {
 	
@@ -303,51 +376,51 @@ class IntelMausi : public super
 	
 public:
 	/* IOService (or its superclass) methods. */
-	virtual bool start(IOService *provider);
-	virtual void stop(IOService *provider);
-	virtual bool init(OSDictionary *properties);
-	virtual void free();
+	virtual bool start(IOService *provider) override;
+	virtual void stop(IOService *provider) override;
+	virtual bool init(OSDictionary *properties) override;
+	virtual void free() override;
 	
 	/* Power Management Support */
-	virtual IOReturn registerWithPolicyMaker(IOService *policyMaker);
-    virtual IOReturn setPowerState(unsigned long powerStateOrdinal, IOService *policyMaker );
-	virtual void systemWillShutdown(IOOptionBits specifier);
+	virtual IOReturn registerWithPolicyMaker(IOService *policyMaker) override;
+    virtual IOReturn setPowerState(unsigned long powerStateOrdinal, IOService *policyMaker) override;
+	virtual void systemWillShutdown(IOOptionBits specifier) override;
     
 	/* IONetworkController methods. */
-	virtual IOReturn enable(IONetworkInterface *netif);
-	virtual IOReturn disable(IONetworkInterface *netif);
+	virtual IOReturn enable(IONetworkInterface *netif) override;
+	virtual IOReturn disable(IONetworkInterface *netif) override;
 	
-    virtual IOReturn outputStart(IONetworkInterface *interface, IOOptionBits options );
-    virtual IOReturn setInputPacketPollingEnable(IONetworkInterface *interface, bool enabled);
-    virtual void pollInputPackets(IONetworkInterface *interface, uint32_t maxCount, IOMbufQueue *pollQueue, void *context);
+    virtual IOReturn outputStart(IONetworkInterface *interface, IOOptionBits options) override;
+    virtual IOReturn setInputPacketPollingEnable(IONetworkInterface *interface, bool enabled) override;
+    virtual void pollInputPackets(IONetworkInterface *interface, uint32_t maxCount, IOMbufQueue *pollQueue, void *context) override;
 	
-	virtual void getPacketBufferConstraints(IOPacketBufferConstraints *constraints) const;
+	virtual void getPacketBufferConstraints(IOPacketBufferConstraints *constraints) const override;
 	
-	virtual IOOutputQueue* createOutputQueue();
+	virtual IOOutputQueue* createOutputQueue() override;
 	
-	virtual const OSString* newVendorString() const;
-	virtual const OSString* newModelString() const;
+	virtual const OSString* newVendorString() const override;
+	virtual const OSString* newModelString() const override;
 	
-	virtual IOReturn selectMedium(const IONetworkMedium *medium);
-	virtual bool configureInterface(IONetworkInterface *interface);
+	virtual IOReturn selectMedium(const IONetworkMedium *medium) override;
+	virtual bool configureInterface(IONetworkInterface *interface) override;
 	
-	virtual bool createWorkLoop();
-	virtual IOWorkLoop* getWorkLoop() const;
+	virtual bool createWorkLoop() override;
+	virtual IOWorkLoop* getWorkLoop() const override;
 	
 	/* Methods inherited from IOEthernetController. */
-	virtual IOReturn getHardwareAddress(IOEthernetAddress *addr);
-	virtual IOReturn setHardwareAddress(const IOEthernetAddress *addr);
-	virtual IOReturn setPromiscuousMode(bool active);
-	virtual IOReturn setMulticastMode(bool active);
-	virtual IOReturn setMulticastList(IOEthernetAddress *addrs, UInt32 count);
-	virtual IOReturn getChecksumSupport(UInt32 *checksumMask, UInt32 checksumFamily, bool isOutput);
-	virtual IOReturn getMinPacketSize(UInt32 *minSize) const;
-    virtual IOReturn setWakeOnMagicPacket(bool active);
-    virtual IOReturn getPacketFilters(const OSSymbol *group, UInt32 *filters) const;
+	virtual IOReturn getHardwareAddress(IOEthernetAddress *addr) override;
+	virtual IOReturn setHardwareAddress(const IOEthernetAddress *addr) override;
+	virtual IOReturn setPromiscuousMode(bool active) override;
+	virtual IOReturn setMulticastMode(bool active) override;
+	virtual IOReturn setMulticastList(IOEthernetAddress *addrs, UInt32 count) override;
+	virtual IOReturn getChecksumSupport(UInt32 *checksumMask, UInt32 checksumFamily, bool isOutput) override;
+	virtual IOReturn getMinPacketSize(UInt32 *minSize) const override;
+    virtual IOReturn setWakeOnMagicPacket(bool active) override;
+    virtual IOReturn getPacketFilters(const OSSymbol *group, UInt32 *filters) const override;
     
-    virtual UInt32 getFeatures() const;
-    virtual IOReturn getMaxPacketSize(UInt32 * maxSize) const;
-    virtual IOReturn setMaxPacketSize(UInt32 maxSize);
+    virtual UInt32 getFeatures() const override;
+    virtual IOReturn getMaxPacketSize(UInt32 * maxSize) const override;
+    virtual IOReturn setMaxPacketSize(UInt32 maxSize) override;
 
 private:
     bool initPCIConfigSpace(IOPCIDevice *provider);
@@ -359,12 +432,21 @@ private:
     bool setupMediumDict();
     bool initEventSources(IOService *provider);
     void interruptOccurred(OSObject *client, IOInterruptEventSource *src, int count);
+    void interruptOccurredVTD(OSObject *client, IOInterruptEventSource *src, int count);
     void txInterrupt();
     
     UInt32 rxInterrupt(IONetworkInterface *interface, uint32_t maxCount, IOMbufQueue *pollQueue, void *context);
+    UInt32 rxInterruptVTD(IONetworkInterface *interface, uint32_t maxCount, IOMbufQueue *pollQueue, void *context);
 
-    bool setupDMADescriptors();
-    void freeDMADescriptors();
+    UInt32 txMapPacket(mbuf_t packet, IOPhysicalSegment *vector, UInt32 maxSegs);
+    void txUnmapPacket();
+    UInt16 rxMapBuffers(UInt16 index, UInt16 count, bool update);
+
+    bool setupRxResources();
+    void freeRxResources();
+    bool setupTxResources();
+    void freeTxResources();
+
     void clearDescriptors();
     void checkLinkStatus();
     void updateStatistics(struct e1000_adapter *adapter);
@@ -372,6 +454,11 @@ private:
     void setLinkDown();
     bool checkForDeadlock();
     
+    bool setupRxMap();
+    void freeRxMap();
+    bool setupTxMap();
+    void freeTxMap();
+
     /* Jumbo frame support methods */
     void discardPacketFragment();
     
@@ -419,7 +506,7 @@ private:
     UInt16 intelSupportsEEE(struct e1000_adapter *adapter);
     SInt32 intelEnableEEE(struct e1000_hw *hw, UInt16 mode);
     
-    inline void intelGetChecksumResult(mbuf_t m, UInt32 status);
+    void intelGetChecksumResult(mbuf_t m, UInt32 status);
 
     void getAddressList(struct IntelAddrData *addr);
 
@@ -449,6 +536,10 @@ private:
     IOPhysicalAddress64 txPhyAddr;
     struct e1000_data_desc *txDescArray;
     IOMbufNaturalMemoryCursor *txMbufCursor;
+    void *txBufArrayMem;
+    intelTxBufferInfo *txBufArray;
+    intelTxMapInfo *txMapInfo;
+    void *txMapMem;
     UInt64 txDescDoneCount;
     UInt64 txDescDoneLast;
     SInt32 txNumFreeDesc;
@@ -463,13 +554,18 @@ private:
     IOBufferMemoryDescriptor *rxBufDesc;
     IOPhysicalAddress64 rxPhyAddr;
     union e1000_rx_desc_extended *rxDescArray;
-	IOMbufNaturalMemoryCursor *rxMbufCursor;
+    MausiRxPool *rxPool;
+    intelRxBufferInfo *rxBufArray;
+    void *rxBufArrayMem;
+    void *rxMapMem;
+    intelRxMapInfo *rxMapInfo;
     mbuf_t rxPacketHead;
     mbuf_t rxPacketTail;
     UInt32 rxPacketSize;
     IOEthernetAddress *mcAddrList;
     UInt32 mcListCount;
     UInt16 rxNextDescIndex;
+    UInt16 rxMapNextIndex;
     UInt16 rxCleanedCount;
     
     /* power management data */
@@ -514,11 +610,10 @@ private:
     bool forceReset;
     bool wolCapable;
     bool wolActive;
+    bool enableTSO4;
+    bool enableTSO6;
     bool enableCSO6;
     bool enableWoM;
     bool enableWakeS5;
-    
-    /* mbuf_t arrays */
-    struct intelTxBufferInfo txBufArray[kNumTxDesc];
-    struct intelRxBufferInfo rxBufArray[kNumRxDesc];
+    bool useAppleVTD;
 };
