@@ -443,7 +443,7 @@ bool IntelMausi::setupRxResources()
 
     /* Alloc receive buffers. */
     for (i = 0; i < kNumRxDesc; i++) {
-        m = rxPool->getPacket(kRxBufferSize);
+        m = rxPool->getPacket(kRxBufferSize, MBUF_WAITOK);
         
         if (!m) {
             IOLog("Couldn't alloc receive buffer.\n");
