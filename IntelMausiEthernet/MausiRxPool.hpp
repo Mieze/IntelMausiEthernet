@@ -36,6 +36,9 @@ public:
 protected:
     void refillPool();
 
+    void refillList(mbuf_t *head, mbuf_t *tail, SInt32 *num,
+                    UInt32 capacity, UInt32 dataSize);
+
     static void refillThread(thread_call_param_t param0);
 
     thread_call_t refillCE;
@@ -52,6 +55,15 @@ protected:
     SInt32 mPktNum;
     UInt32 maxCopySize;
     bool refillScheduled;
+
+    /*
+     * Guards the two free lists above. getPacket() runs on the driver's
+     * workloop while refillPool() runs from a thread_call, so both lists and
+     * their counters are shared between two threads. The counters were already
+     * updated atomically, but the list heads and tails were not, which allowed
+     * a refill to append behind a mbuf that had already been handed out.
+     */
+    IOSimpleLock *listLock;
 };
 
 #endif /* MausiRxPool_hpp */

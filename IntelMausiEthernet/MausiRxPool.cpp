@@ -35,6 +35,10 @@ void MausiRxPool::free()
         mPktHead = mPktTail = NULL;
         mPktNum = 0;
     }
+    if (listLock) {
+        IOSimpleLockFree(listLock);
+        listLock = NULL;
+    }
     super::free();
 }
 
@@ -49,6 +53,10 @@ bool MausiRxPool::initWithCapacity(UInt32 mbufCapacity,
     bool result = false;
     
     if ((mbufCapacity > 0) && (clustCapacity > 0)) {
+        listLock = IOSimpleLockAlloc();
+        if (!listLock)
+            goto done;
+
         cPktHead = cPktTail = NULL;
         mPktHead = mPktTail = NULL;
         cCapacity = clustCapacity;
@@ -144,89 +152,135 @@ mbuf_t MausiRxPool::getPacket(UInt32 size, mbuf_how_t how)
     void * data;
     errno_t err;
     unsigned int chunks = 1;
+    bool bigPacket = (size > maxCopySize);
+    bool scheduleRefill = false;
 
-    if (size > maxCopySize) {
-        err = mbuf_allocpacket(how, PAGE_SIZE, &chunks, &m);
-        
-        if (!err) {
-            data = mbuf_datastart(m);
-            mbuf_setdata(m, data, 0);
-            
-        } else if (cPktNum > 1) {
-            OSDecrementAtomic(&cPktNum);
-            
+    /*
+     * Try the packet allocator first. This runs unlocked on purpose: it can
+     * block when called with MBUF_WAITOK and must not be done under a spin
+     * lock. The pool is only a fallback for when it fails.
+     */
+    err = mbuf_allocpacket(how, bigPacket ? PAGE_SIZE : maxCopySize, &chunks, &m);
+
+    if (!err) {
+        data = mbuf_datastart(m);
+        mbuf_setdata(m, data, 0);
+        return m;
+    }
+
+    /*
+     * Pop from the pool. Taking the head, advancing it and dropping the count
+     * has to be a single atomic step against refillPool(), otherwise a refill
+     * running on its own thread can append behind the mbuf we are about to hand
+     * out and the same mbuf ends up both owned by the driver and still on the
+     * free list.
+     */
+    IOSimpleLockLock(listLock);
+
+    if (bigPacket) {
+        if (cPktNum > 1) {
             m = cPktHead;
             cPktHead = mbuf_nextpkt(cPktHead);
             mbuf_setnextpkt(m, NULL);
-            
+            cPktNum--;
+
+            /*
+             * If the list held two entries we just removed the tail as well,
+             * so the tail now points at a mbuf that has been handed out. Drop
+             * it, otherwise a later refill would link the new mbuf behind it
+             * and that mbuf would end up on two lists at once.
+             */
+            if (cPktHead == NULL)
+                cPktTail = NULL;
+
             if ((cPktNum < cRefillTresh) && !refillScheduled) {
                 refillScheduled = true;
-                thread_call_enter_delayed(refillCE, refillDelay);
+                scheduleRefill = true;
             }
         }
     } else {
-        err = mbuf_allocpacket(how, maxCopySize, &chunks, &m);
-
-        if (!err) {
-            data = mbuf_datastart(m);
-            mbuf_setdata(m, data, 0);
-            
-        } else if (mPktNum > 1) {
-            OSDecrementAtomic(&mPktNum);
-            
+        if (mPktNum > 1) {
             m = mPktHead;
             mPktHead = mbuf_nextpkt(mPktHead);
             mbuf_setnextpkt(m, NULL);
-            
+            mPktNum--;
+
+            if (mPktHead == NULL)
+                mPktTail = NULL;
+
             if ((mPktNum < mRefillTresh) && !refillScheduled) {
                 refillScheduled = true;
-                thread_call_enter_delayed(refillCE, refillDelay);
+                scheduleRefill = true;
             }
         }
     }
+
+    IOSimpleLockUnlock(listLock);
+
+    if (scheduleRefill)
+        thread_call_enter_delayed(refillCE, refillDelay);
+
     return m;
 }
 
 void MausiRxPool::refillPool()
 {
+    refillList(&mPktHead, &mPktTail, &mPktNum, mCapacity, maxCopySize);
+    refillList(&cPktHead, &cPktTail, &cPktNum, cCapacity, PAGE_SIZE);
+
+    IOSimpleLockLock(listLock);
+    refillScheduled = false;
+    IOSimpleLockUnlock(listLock);
+}
+
+/*
+ * Top up one of the two free lists. Allocating happens outside the lock,
+ * because mbuf_allocpacket() may block and a spin lock may not be held across
+ * a blocking call. The newly allocated mbuf is only published under the lock,
+ * so a concurrent getPacket() can never observe a half linked list.
+ */
+void MausiRxPool::refillList(mbuf_t *head, mbuf_t *tail, SInt32 *num,
+                             UInt32 capacity, UInt32 dataSize)
+{
     mbuf_t m;
     void * data;
     errno_t err;
     unsigned int chunks;
-    
-    while (mPktNum < mCapacity) {
-        chunks = 1;
-        err = mbuf_allocpacket(MBUF_DONTWAIT, maxCopySize, &chunks, &m);
 
-        if (!err) {
-            data = mbuf_datastart(m);
-            mbuf_setdata(m, data, 0);
-            
-            mbuf_setnextpkt(mPktTail, m);
-            mPktTail = m;
-            OSIncrementAtomic(&mPktNum);
-        } else {
-            goto done;
+    while (true) {
+        IOSimpleLockLock(listLock);
+        if (*num >= (SInt32)capacity) {
+            IOSimpleLockUnlock(listLock);
+            break;
         }
-    }
-    while (cPktNum < cCapacity) {
+        IOSimpleLockUnlock(listLock);
+
         chunks = 1;
-        err = mbuf_allocpacket(MBUF_DONTWAIT, PAGE_SIZE, &chunks, &m);
-        
-        if (!err) {
-            data = mbuf_datastart(m);
-            mbuf_setdata(m, data, 0);
+        err = mbuf_allocpacket(MBUF_DONTWAIT, dataSize, &chunks, &m);
 
-            mbuf_setnextpkt(cPktTail, m);
-            cPktTail = m;
-            OSIncrementAtomic(&cPktNum);
+        if (err)
+            break;
+
+        data = mbuf_datastart(m);
+        mbuf_setdata(m, data, 0);
+
+        IOSimpleLockLock(listLock);
+
+        /*
+         * The list may have been drained completely by getPacket() while we
+         * were allocating. In that case the old tail has already been handed
+         * out and must not be written to, so start a new list instead.
+         */
+        if (*head == NULL) {
+            *head = *tail = m;
         } else {
-            goto done;
+            mbuf_setnextpkt(*tail, m);
+            *tail = m;
         }
-    }
+        (*num)++;
 
-done:
-    refillScheduled = false;
+        IOSimpleLockUnlock(listLock);
+    }
 }
 
 void MausiRxPool::refillThread(thread_call_param_t param0)
