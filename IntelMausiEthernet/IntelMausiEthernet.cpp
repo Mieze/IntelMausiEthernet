@@ -200,6 +200,8 @@ bool IntelMausi::init(OSDictionary *properties)
         useAppleVTD = false;
         pciPMCtrlOffset = 0;
         maxLatency = 0;
+        lastMedium = NULL;
+        lastMediumSpeed = 0;
     }
     
 done:
@@ -1609,7 +1611,11 @@ void IntelMausi::setLinkUp()
 
     linkUp = true;
     
-    setLinkStatus((kIONetworkLinkValid | kIONetworkLinkActive), mediumTable[mediumIndex], mediumSpeed, NULL);
+    /* Remember the negotiated medium so that setLinkDown() can report it. */
+    lastMedium = mediumTable[mediumIndex];
+    lastMediumSpeed = mediumSpeed;
+    
+    setLinkStatus((kIONetworkLinkValid | kIONetworkLinkActive), lastMedium, lastMediumSpeed, NULL);
 
     /* Update poll params according to link speed. */
     bzero(&pollParams, sizeof(IONetworkPacketPollingParameters));
@@ -1673,9 +1679,21 @@ void IntelMausi::setLinkDown()
     netif->stopOutputThread();
     netif->flushOutputQueue();
     
-    /* Update link status. */
+    /* Update link status.
+     *
+     * Report the medium of the link that just went away instead of none. The
+     * driver's medium objects are fixed at setup time, so passing the last
+     * negotiated one gives the network stack an unbroken medium across the
+     * transition. Apple's Aquantia driver does the same by always committing a
+     * medium in its medium_changed() handler, including on the way down.
+     */
     linkUp = false;
-    setLinkStatus(kIONetworkLinkValid);
+    
+    if (lastMedium) {
+        setLinkStatus(kIONetworkLinkValid, lastMedium, lastMediumSpeed, NULL);
+    } else {
+        setLinkStatus(kIONetworkLinkValid);
+    }
     
     intelDown(&adapterData, true);
     intelConfigure(&adapterData);

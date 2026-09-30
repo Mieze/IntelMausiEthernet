@@ -519,6 +519,11 @@ private:
 	IOPCIDevice *pciDevice;
 	OSDictionary *mediumDict;
 	IONetworkMedium *mediumTable[MEDIUM_INDEX_COUNT];
+	/* Medium and speed of the last established link. Reported on link down so
+	 * that the network stack keeps a continuous medium across the transition
+	 * instead of seeing it appear and disappear. */
+	IONetworkMedium *lastMedium;
+	UInt64 lastMediumSpeed;
 	IOBasicOutputQueue *txQueue;
 	
 	IOInterruptEventSource *interruptSource;
