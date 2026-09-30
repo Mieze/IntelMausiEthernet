@@ -72,8 +72,8 @@ bool IntelMausi::setupRxMap()
             pa = md->getPhysicalSegment(offset, NULL);
             rxBufArray[n].phyAddr = pa;
             
-            rxDescArray[i].read.buffer_addr = OSSwapHostToLittleInt64(pa);
-            rxDescArray[i].read.reserved = 0;
+            rxDescArray[n].read.buffer_addr = OSSwapHostToLittleInt64(pa);
+            rxDescArray[n].read.reserved = 0;
 
             offset += PAGE_SIZE;
         }
