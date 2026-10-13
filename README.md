@@ -81,3 +81,10 @@ ln -s ../MacKernelSDK MacKernelSDK
 ~~~~
 
 The project is ready to compile by Xcode any version.
+
+**Contributions**
+
+If you find my projects useful, please consider to buy me a cup of coffee: https://buymeacoffee.com/mieze
+
+Thank you for your support! Your contribution helps me to continue development.
+

@@ -96,6 +96,7 @@ static const struct intelDevice deviceTable[] = {
     { .pciDevId = E1000_DEV_ID_PCH_CMP_I219_LM12, .device = board_pch_spt, .deviceName = "I219LM12", .deviceInfo = &e1000_pch_spt_info },
     { .pciDevId = E1000_DEV_ID_PCH_CMP_I219_V12, .device = board_pch_spt, .deviceName = "I219V12", .deviceInfo = &e1000_pch_spt_info },
 
+
     { .pciDevId = E1000_DEV_ID_PCH_ICP_I225LM,  .device = board_pch_spt, .deviceName = "I225LM", .deviceInfo = &e1000_pch_cnp_info },
     { .pciDevId = E1000_DEV_ID_PCH_ICP_I225LM2, .device = board_pch_spt, .deviceName = "I225LM2", .deviceInfo = &e1000_pch_cnp_info },
 

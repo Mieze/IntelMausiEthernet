@@ -34,7 +34,9 @@ bool IntelMausi::setupRxMap()
     IOPhysicalAddress pa;
     IOByteCount offset;
     UInt32 end;
-  
+
+    UInt32 i, n, idx;
+
     bool result = false;
 
     /* Alloc ixgbeRxBufferInfo. */
@@ -47,13 +49,17 @@ bool IntelMausi::setupRxMap()
     rxMapInfo = (intelRxMapInfo *)rxMapMem;
     
     /* Setup Ranges for IOMemoryDescriptors. */
+
     for (UInt32 i = 0; i < kNumRxDesc; i++) {
+
         rxMapInfo->rxMemRange[i].address = (IOVirtualAddress)mbuf_datastart(rxBufArray[i].mbuf);
         rxMapInfo->rxMemRange[i].length = PAGE_SIZE;
     }
 
     /* Alloc IOMemoryDescriptors. */
-    for (UInt32 i = 0, idx = 0; i < kNumRxMemDesc; i++, idx += kRxMemBatchSize) {
+
+    for (i = 0, idx = 0; i < kNumRxMemDesc; i++, idx += kRxMemBatchSize) {
+
         md = IOMemoryDescriptor::withOptions(&rxMapInfo->rxMemRange[idx], kRxMemBatchSize, 0, kernel_task, (kIOMemoryTypeVirtual | kIODirectionIn | kIOMemoryAsReference), mapper);
         
         if (!md) {
@@ -72,8 +78,8 @@ bool IntelMausi::setupRxMap()
             pa = md->getPhysicalSegment(offset, NULL);
             rxBufArray[n].phyAddr = pa;
             
-            rxDescArray[i].read.buffer_addr = OSSwapHostToLittleInt64(pa);
-            rxDescArray[i].read.reserved = 0;
+            rxDescArray[n].read.buffer_addr = OSSwapHostToLittleInt64(pa);
+            rxDescArray[n].read.reserved = 0;
 
             offset += PAGE_SIZE;
         }
@@ -110,6 +116,7 @@ void IntelMausi::freeRxMap()
 
     if (rxMapMem) {
         for (UInt32 i = 0; i < kNumRxMemDesc; i++) {
+
             md = rxMapInfo->rxMemIO[i];
                             
             if (md) {
@@ -270,6 +277,7 @@ map:
             dstRange = &txMapInfo->txMemRange[txNextDescIndex];
             
             for (UInt32 i = 0; i < segIndex; i++) {
+
                 dstRange[i].address = (srcRange[i].address & ~PAGE_MASK);
                 dstRange[i].length = PAGE_SIZE;
                 srcRange[i].address &= PAGE_MASK;
@@ -306,6 +314,7 @@ map:
              * Get the physical segments and fill in the vector.
              */
             for (UInt32 i = 0; i < segIndex; i++) {
+
                 vector[i].location = md->getPhysicalSegment(offset, NULL) + srcRange[i].address;
                 vector[i].length = srcRange[i].length;
 
