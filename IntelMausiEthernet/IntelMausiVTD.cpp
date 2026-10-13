@@ -34,7 +34,9 @@ bool IntelMausi::setupRxMap()
     IOPhysicalAddress pa;
     IOByteCount offset;
     UInt32 end;
+
     UInt32 i, n, idx;
+
     bool result = false;
 
     /* Alloc ixgbeRxBufferInfo. */
@@ -47,13 +49,17 @@ bool IntelMausi::setupRxMap()
     rxMapInfo = (intelRxMapInfo *)rxMapMem;
     
     /* Setup Ranges for IOMemoryDescriptors. */
-    for (i = 0; i < kNumRxDesc; i++) {
+
+    for (UInt32 i = 0; i < kNumRxDesc; i++) {
+
         rxMapInfo->rxMemRange[i].address = (IOVirtualAddress)mbuf_datastart(rxBufArray[i].mbuf);
         rxMapInfo->rxMemRange[i].length = PAGE_SIZE;
     }
 
     /* Alloc IOMemoryDescriptors. */
+
     for (i = 0, idx = 0; i < kNumRxMemDesc; i++, idx += kRxMemBatchSize) {
+
         md = IOMemoryDescriptor::withOptions(&rxMapInfo->rxMemRange[idx], kRxMemBatchSize, 0, kernel_task, (kIOMemoryTypeVirtual | kIODirectionIn | kIOMemoryAsReference), mapper);
         
         if (!md) {
@@ -68,7 +74,7 @@ bool IntelMausi::setupRxMap()
         offset = 0;
         end = idx + kRxMemBatchSize;
 
-        for (n = idx; n < end; n++) {
+        for (UInt32 n = idx; n < end; n++) {
             pa = md->getPhysicalSegment(offset, NULL);
             rxBufArray[n].phyAddr = pa;
             
@@ -89,7 +95,7 @@ error_prep:
 
 error_rx_desc:
     if (rxMapMem) {
-        for (i = 0; i < kNumRxMemDesc; i++) {
+        for (UInt32 i = 0; i < kNumRxMemDesc; i++) {
             md = rxMapInfo->rxMemIO[i];
                             
             if (md) {
@@ -107,10 +113,10 @@ error_rx_desc:
 void IntelMausi::freeRxMap()
 {
     IOMemoryDescriptor *md;
-    UInt32 i;
 
     if (rxMapMem) {
-        for (i = 0; i < kNumRxMemDesc; i++) {
+        for (UInt32 i = 0; i < kNumRxMemDesc; i++) {
+
             md = rxMapInfo->rxMemIO[i];
                             
             if (md) {
@@ -148,10 +154,8 @@ done:
 
 void IntelMausi::freeTxMap()
 {
-    UInt32 i;
-
     if (txMapMem) {
-        for (i = 0; i < kNumTxMemDesc; i++) {
+        for (UInt32 i = 0; i < kNumTxMemDesc; i++) {
             if (txMapInfo->txMemIO[i]) {
                 txMapInfo->txMemIO[i]->complete();
                 txMapInfo->txMemIO[i]->release();
@@ -224,7 +228,7 @@ UInt32 IntelMausi::txMapPacket(mbuf_t packet,
     IOByteCount offset;
     UInt64 len, l;
     UInt32 segIndex = 0;
-    UInt32 i;
+
     UInt16 saveMem;
     bool result = false;
 
@@ -272,7 +276,8 @@ map:
         if (txMapInfo->txNumFreeMem > 1) {
             dstRange = &txMapInfo->txMemRange[txNextDescIndex];
             
-            for (i = 0; i < segIndex; i++) {
+            for (UInt32 i = 0; i < segIndex; i++) {
+
                 dstRange[i].address = (srcRange[i].address & ~PAGE_MASK);
                 dstRange[i].length = PAGE_SIZE;
                 srcRange[i].address &= PAGE_MASK;
@@ -308,7 +313,8 @@ map:
             /*
              * Get the physical segments and fill in the vector.
              */
-            for (i = 0; i < segIndex; i++) {
+            for (UInt32 i = 0; i < segIndex; i++) {
+
                 vector[i].location = md->getPhysicalSegment(offset, NULL) + srcRange[i].address;
                 vector[i].length = srcRange[i].length;
 

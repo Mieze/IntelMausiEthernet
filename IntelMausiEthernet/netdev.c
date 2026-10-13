@@ -7597,6 +7597,8 @@ static const struct pci_device_id e1000_pci_tbl[] = {
 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_PCH_ICP_I219_V8), board_pch_cnp },
 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_PCH_ICP_I219_LM9), board_pch_cnp },
 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_PCH_ICP_I219_V9), board_pch_cnp },
+  { PCI_VDEVICE(INTEL, E1000_DEV_ID_PCH_ICP_I225LM), board_pch_spt },
+  { PCI_VDEVICE(INTEL, E1000_DEV_ID_PCH_ICP_I225LM2), board_pch_spt },
 
 	{ 0, 0, 0, 0, 0, 0, 0 }	/* terminate list */
 };

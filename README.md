@@ -58,8 +58,33 @@ A few days before Christmas I started my latest project, a new driver for recent
 - Support for AppleVTD (since V2.5.5d0).
 - The driver is published under GPLv2.
 
+# Compilation
+
+Download sources
+~~~~
+git clone https://github.com/CloverHackyColor/IntelMausiEthernet.git
+~~~~
+
+then also download MacKernelSDK
+~~~~
+git clone https://github.com/joevt/MacKernelSDK.git
+~~~~
+
+goto the project folder
+~~~~
+cd IntelMausiEthernet
+~~~~
+
+and make symbolic link to the SDK
+~~~~
+ln -s ../MacKernelSDK MacKernelSDK
+~~~~
+
+The project is ready to compile by Xcode any version.
+
 **Contributions**
 
 If you find my projects useful, please consider to buy me a cup of coffee: https://buymeacoffee.com/mieze
 
 Thank you for your support! Your contribution helps me to continue development.
+
